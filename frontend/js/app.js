@@ -1,0 +1,3924 @@
+/**
+ * VIDARA — AI Video Intelligence Platform Controller
+ * "Understand Every Moment."
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Application State
+  const state = {
+    selectedFile: null,
+    videoId: null,
+    duration: 0,
+    transcript: null,
+    coreThesis: '',
+    topics: [],
+    allDiscoveredTopics: [],
+    isQueryMode: false,
+    selectedTopicIds: new Set(),
+    clips: [],
+    selectedClipIds: new Set(),
+    isVoiceRecording: false,
+    speechRecognition: null,
+    audiences: [],
+    selectedAudienceId: null,
+    currentEdl: null,
+    validationReport: null,
+    overrides: {},
+    mergedVideoUrl: '',
+    mergedVttUrl: '',
+    apiBase: window.location.origin,
+    token: localStorage.getItem('vidara_token') || sessionStorage.getItem('vidara_token') || null,
+    user: JSON.parse(localStorage.getItem('vidara_user') || sessionStorage.getItem('vidara_user') || 'null'),
+    resetToken: null,
+    videoTitle: '',
+    activeClip: null,
+    audienceMode: 'education',
+    notesCache: {}
+  };
+
+  // Auth & User Profile Elements
+  const authBtn = document.getElementById('authBtn');
+  const userProfilePill = document.getElementById('userProfilePill');
+  const userAvatarMini = document.getElementById('userAvatarMini');
+  const userNameLabel = document.getElementById('userNameLabel');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const authModal = document.getElementById('authModal');
+  const closeAuthModalBtn = document.getElementById('closeAuthModalBtn');
+
+  // Library & Saved Clips Elements
+  const navLibraryBtn = document.getElementById('navLibraryBtn');
+  const navLibraryCountBadge = document.getElementById('navLibraryCountBadge');
+  const libraryModal = document.getElementById('libraryModal');
+  const closeLibraryModalBtn = document.getElementById('closeLibraryModalBtn');
+  const tabLibClips = document.getElementById('tabLibClips');
+  const tabLibVideos = document.getElementById('tabLibVideos');
+  const panelLibClips = document.getElementById('panelLibClips');
+  const panelLibVideos = document.getElementById('panelLibVideos');
+  const libClipsCountBadge = document.getElementById('libClipsCountBadge');
+  const libVideosCountBadge = document.getElementById('libVideosCountBadge');
+  const savedClipsGrid = document.getElementById('savedClipsGrid');
+  const emptyLibraryClipsMsg = document.getElementById('emptyLibraryClipsMsg');
+  const savedVideosList = document.getElementById('savedVideosList');
+  const emptyLibraryVideosMsg = document.getElementById('emptyLibraryVideosMsg');
+  const saveCurrentStudioClipBtn = document.getElementById('saveCurrentStudioClipBtn');
+
+  // DOM Elements
+  const tabUploadFile = document.getElementById('tabUploadFile');
+  const tabUploadLink = document.getElementById('tabUploadLink');
+  const panelUploadFile = document.getElementById('panelUploadFile');
+  const panelUploadLink = document.getElementById('panelUploadLink');
+  const videoUrlInput = document.getElementById('videoUrlInput');
+  const fetchVideoUrlBtn = document.getElementById('fetchVideoUrlBtn');
+
+  const dropzone = document.getElementById('videoDropzone');
+  const fileInput = document.getElementById('videoFileInput');
+  const browseFileBtn = document.getElementById('browseFileBtn');
+  const useSampleDemoBtn = document.getElementById('useSampleDemoBtn');
+  const videoPreviewBar = document.getElementById('videoPreviewBar');
+  const videoFileName = document.getElementById('videoFileName');
+  const videoFileStats = document.getElementById('videoFileStats');
+  const uploadQuestionInput = document.getElementById('queryTextInput');
+  const startPipelineBtn = document.getElementById('startPipelineBtn');
+
+  // Mode Elements
+  const queryTextInput = document.getElementById('queryTextInput');
+  const voiceQueryBtn = document.getElementById('voiceQueryBtn');
+  const voiceStatusPill = document.getElementById('voiceStatusPill');
+  const submitQueryBtn = document.getElementById('submitQueryBtn');
+  const discoverTopicsBtn = document.getElementById('discoverTopicsBtn');
+  const autoExtractHighlightsBtn = document.getElementById('autoExtractHighlightsBtn');
+  const topicsDashboardTitle = document.getElementById('topicsDashboardTitle');
+  const showAllScenesBtn = document.getElementById('showAllScenesBtn');
+  const allScenesCount = document.getElementById('allScenesCount');
+  const samplePromptTags = document.querySelectorAll('.sample-prompt-tag');
+
+  // Processing & Stepper Elements
+  const processingCard = document.getElementById('processingCard');
+  const processingTitle = document.getElementById('processingTitle');
+  const processingDetail = document.getElementById('processingDetail');
+  const progressBar = document.getElementById('progressBar');
+  const stagePills = {
+    upload: document.getElementById('stgUpload'),
+    audio: document.getElementById('stgAudio'),
+    transcribe: document.getElementById('stgTranscribe'),
+    index: document.getElementById('stgIndex'),
+    topics: document.getElementById('stgTopics'),
+    rank: document.getElementById('stgRank'),
+    boundaries: document.getElementById('stgBoundaries'),
+    ready: document.getElementById('stgReady')
+  };
+
+  // Results & Dashboard Elements
+  const queryResultsCard = document.getElementById('queryResultsCard');
+  const queryConceptsPills = document.getElementById('queryConceptsPills');
+  const queryReasoningText = document.getElementById('queryReasoningText');
+
+  const topicsDashboardCard = document.getElementById('topicsDashboardCard');
+  const rankedTopicsGrid = document.getElementById('rankedTopicsGrid');
+  const selectAllTopicsCheckbox = document.getElementById('selectAllTopicsCheckbox');
+  const selectedCountBadge = document.getElementById('selectedCountBadge');
+  const generateSelectedClipsBtn = document.getElementById('generateSelectedClipsBtn');
+  const mergeSelectedClipsBtn = document.getElementById('mergeSelectedClipsBtn');
+
+  // Advanced / Output Studio Elements
+  const coreThesisText = document.getElementById('coreThesisText');
+  const audienceGrid = document.getElementById('audienceGrid');
+
+  const outputSection = document.getElementById('outputSection');
+  const finalVideoPlayer = document.getElementById('finalVideoPlayer');
+  const videoSubtitlesTrack = document.getElementById('videoSubtitlesTrack');
+  const downloadVideoBtn = document.getElementById('downloadVideoBtn');
+  const downloadSubtitlesBtn = document.getElementById('downloadSubtitlesBtn');
+  const downloadAuditLogBtn = document.getElementById('downloadAuditLogBtn');
+  const quickMergeSelectedBtn = document.getElementById('quickMergeSelectedBtn');
+
+  const metricOriginalDuration = document.getElementById('metricOriginalDuration');
+  const metricRepurposedDuration = document.getElementById('metricRepurposedDuration');
+  const metricCompression = document.getElementById('metricCompression');
+  const metricCompressionDetail = document.getElementById('metricCompressionDetail');
+  const faithfulnessScore = document.getElementById('faithfulnessScore');
+
+  const tabMergedVideo = document.getElementById('tabMergedVideo');
+  const tabIndividualClips = document.getElementById('tabIndividualClips');
+  const clipsCountBadge = document.getElementById('clipsCountBadge');
+  const nowPlayingLabel = document.getElementById('nowPlayingLabel');
+  const downloadVideoBtnText = document.getElementById('downloadVideoBtnText');
+  const studioPlaylistContainer = document.getElementById('studioPlaylistContainer');
+  const studioClipsList = document.getElementById('studioClipsList');
+  const individualClipsPanel = document.getElementById('individualClipsPanel');
+  const clipsGrid = document.getElementById('clipsGrid');
+  const mergeClipsActionBtn = document.getElementById('mergeClipsActionBtn');
+
+  // Reset and purge any browser autofill on query search bar
+  function purgeAutofill() {
+    if (queryTextInput) {
+      const val = (queryTextInput.value || '').trim();
+      if (val.includes('@') || val.toLowerCase().includes('karanth') || val.toLowerCase().includes('vishnu')) {
+        queryTextInput.value = '';
+      }
+    }
+  }
+
+  if (queryTextInput) {
+    queryTextInput.value = '';
+    queryTextInput.addEventListener('focus', purgeAutofill);
+    queryTextInput.addEventListener('input', purgeAutofill);
+    setTimeout(purgeAutofill, 50);
+    setTimeout(purgeAutofill, 300);
+    setTimeout(purgeAutofill, 1000);
+  }
+
+  async function parseErrorResponse(res, defaultMsg) {
+    try {
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        return data.detail || data.message || defaultMsg;
+      } catch {
+        return (text && text.length < 300) ? text : defaultMsg;
+      }
+    } catch {
+      return defaultMsg;
+    }
+  }
+
+  // Initialize Speech Recognition, Audiences, Auth & Library
+  initSpeechRecognition();
+  fetchAudiences();
+  initAuthUI();
+  initLibraryUI();
+  checkAuthState();
+
+  // -------------------------------------------------------------
+  // 1. VIDEO INGESTION: FILE UPLOAD & LINK IMPORT
+  // -------------------------------------------------------------
+  // Mode Tabs Switching
+  if (tabUploadFile && tabUploadLink) {
+    tabUploadFile.addEventListener('click', () => {
+      tabUploadFile.classList.add('active');
+      tabUploadLink.classList.remove('active');
+      if (panelUploadFile) panelUploadFile.classList.remove('hidden');
+      if (panelUploadLink) panelUploadLink.classList.add('hidden');
+      if (state.selectedFile && videoPreviewBar) videoPreviewBar.classList.remove('hidden');
+    });
+
+    tabUploadLink.addEventListener('click', () => {
+      tabUploadLink.classList.add('active');
+      tabUploadFile.classList.remove('active');
+      if (panelUploadLink) panelUploadLink.classList.remove('hidden');
+      if (panelUploadFile) panelUploadFile.classList.add('hidden');
+      if (videoPreviewBar) videoPreviewBar.classList.add('hidden');
+      if (videoUrlInput) videoUrlInput.focus();
+    });
+  }
+
+  // Link Ingestion Actions
+  if (fetchVideoUrlBtn && videoUrlInput) {
+    fetchVideoUrlBtn.addEventListener('click', async () => {
+      await importAndIndexVideoUrl(videoUrlInput.value.trim());
+    });
+
+    videoUrlInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        await importAndIndexVideoUrl(videoUrlInput.value.trim());
+      }
+    });
+  }
+
+  browseFileBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+  });
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.closest('#useSampleDemoBtn')) return;
+    fileInput.click();
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileSelected(e.target.files[0]);
+    }
+  });
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('dragover');
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelected(e.dataTransfer.files[0]);
+    }
+  });
+
+  function handleFileSelected(file) {
+    state.selectedFile = file;
+    videoFileName.textContent = file.name;
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    videoFileStats.textContent = `${sizeMb} MB • Ready for Vidara intelligence`;
+    videoPreviewBar.classList.remove('hidden');
+    dropzone.style.display = 'none';
+  }
+
+  // Sample Founder Video Demo Button
+  if (useSampleDemoBtn) {
+    useSampleDemoBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      setProcessing(true, "Loading Sample Video...", "Fetching raw video recording...", 15, 'upload');
+      try {
+        const response = await fetch(`${state.apiBase}/static/uploads/sample_raw.mp4`);
+        if (!response.ok) throw new Error("Sample file not available.");
+        const blob = await response.blob();
+        const sampleFile = new File([blob], 'founder_walkthrough_raw.mp4', { type: 'video/mp4' });
+        handleFileSelected(sampleFile);
+        setProcessing(false);
+        startPipelineBtn.click();
+      } catch (e) {
+        console.warn("Falling back to local video file selection:", e);
+        setProcessing(false);
+        fileInput.click();
+      }
+    });
+  }
+
+  // Start Pipeline / Indexing Button
+  startPipelineBtn.addEventListener('click', async () => {
+    if (tabUploadLink && tabUploadLink.classList.contains('active') && videoUrlInput && videoUrlInput.value.trim()) {
+      await importAndIndexVideoUrl(videoUrlInput.value.trim());
+      return;
+    }
+    if (!state.selectedFile) return;
+    await uploadAndIndexVideo();
+  });
+
+  async function runAnalysisPipeline(videoId, duration) {
+    setProcessing(true, "Transcribing with Whisper Large-v3...", "Generating word-level millisecond timestamps on Groq LPUs...", 20, 'transcribe');
+    updateStepIndicator(2);
+    setStagePill('transcribe');
+
+    // STEP 1: Fire the analyze request — returns immediately (queued or already-indexed)
+    const kickoffRes = await apiFetch(`/api/videos/${videoId}/analyze`, {
+      method: 'POST'
+    });
+    if (!kickoffRes.ok) {
+      const errMsg = await parseErrorResponse(kickoffRes, "Video analysis kickoff failed");
+      throw new Error(errMsg);
+    }
+    const kickoffData = await kickoffRes.json();
+
+    // Map backend stages to UI pill keys
+    const stageMap = {
+      'Media ingestion': 'upload',
+      'Audio extraction': 'audio',
+      'Audio Extracted': 'audio',
+      'Transcription': 'transcribe',
+      'Transcribing Audio': 'transcribe',
+      'Semantic indexing': 'index',
+      'Building Semantic Graph': 'index',
+      'Discovering Key Moments': 'topics',
+      'Topic discovery': 'topics',
+      'Importance ranking': 'rank',
+      'Boundary validation': 'boundaries',
+      'Ready': 'ready',
+      'Semantic Index Built': 'ready'
+    };
+
+    // If the video was already indexed in a previous run, skip polling
+    let analyzeData = null;
+    if (kickoffData.status === 'success' && kickoffData.already_indexed) {
+      analyzeData = kickoffData;
+    } else {
+      // STEP 2: Poll /status until the background job completes
+      analyzeData = await new Promise((resolve, reject) => {
+        const poller = setInterval(async () => {
+          try {
+            const sRes = await apiFetch(`/api/videos/${videoId}/status`);
+            if (!sRes.ok) return;
+            const sData = await sRes.json();
+
+            // Live progress display
+            const stage = sData.stage || sData.current_stage || 'Processing';
+            const msg = sData.message || 'Processing video intelligence...';
+            const progress = Math.max(20, sData.progress || 30);
+            const pill = stageMap[stage] || 'transcribe';
+            setStagePill(pill);
+            setProcessing(true, `${stage}...`, msg, progress, pill);
+
+            const isFinishedStage = (sData.status === 'completed' &&
+              sData.stage !== 'Audio Extracted' &&
+              sData.stage !== 'Media ingestion' &&
+              sData.job_type !== 'ingestion' &&
+              (sData.stage === 'Semantic Index Built' || sData.stage === 'Ready' || progress >= 95));
+
+            if (isFinishedStage) {
+              try {
+                const resultRes = await apiFetch(`/api/videos/${videoId}/analyze-result`);
+                if (resultRes.status === 202) {
+                  // Still packaging results, keep poller active
+                  return;
+                }
+                if (!resultRes.ok) {
+                  clearInterval(poller);
+                  const errText = await resultRes.text();
+                  reject(new Error(`Result fetch failed: ${errText}`));
+                  return;
+                }
+                clearInterval(poller);
+                const resultData = await resultRes.json();
+                resolve(resultData);
+              } catch (e) {
+                // Network hiccup, keep poller active
+              }
+            } else if (sData.status === 'failed') {
+              clearInterval(poller);
+              reject(new Error(sData.message || sData.error || 'Analysis pipeline failed'));
+            }
+          } catch (e) {
+            // Network hiccup — keep polling
+          }
+        }, 1200);
+      });
+    }
+
+    if (analyzeData.status === 'failed') {
+      throw new Error(analyzeData.error || analyzeData.message || "Video analysis failed.");
+    }
+
+    state.coreThesis = analyzeData.core_thesis;
+    if (coreThesisText) coreThesisText.textContent = state.coreThesis;
+
+    // Update Video Intelligence Overview Card
+    const videoOverviewCard = document.getElementById('videoOverviewCard');
+    const summaryDuration = document.getElementById('summaryDuration');
+    const summarySegments = document.getElementById('summarySegments');
+    const summaryTopics = document.getElementById('summaryTopics');
+    const overviewCoreThesis = document.getElementById('overviewCoreThesis');
+
+    if (summaryDuration) summaryDuration.textContent = formatTime(duration);
+    if (summarySegments) summarySegments.textContent = analyzeData.segment_count || '0';
+    if (overviewCoreThesis) overviewCoreThesis.textContent = state.coreThesis || 'Complete video indexed.';
+
+    // Save all discovered topics from video analysis
+    state.allDiscoveredTopics = analyzeData.topics || [];
+    state.topics = analyzeData.topics || [];
+    if (summaryTopics) summaryTopics.textContent = analyzeData.topic_count || state.topics.length || '0';
+    if (videoOverviewCard) videoOverviewCard.classList.remove('hidden');
+
+    setStagePill('ready');
+    setProcessing(false);
+    updateStepIndicator(3);
+
+    // Render all separate scenes/topics from the video with clip cuts and option to merge!
+    renderAllScenes(state.allDiscoveredTopics);
+
+    // Automatically generate clips for discovered topics so the editing studio opens immediately with cuts ready!
+    if (state.allDiscoveredTopics && state.allDiscoveredTopics.length > 0) {
+      const topIds = state.allDiscoveredTopics.map(t => t.id);
+      try {
+        await generateClips(topIds);
+      } catch (clipErr) {
+        console.warn("Initial clip generation deferred:", clipErr);
+        setTimeout(() => {
+          if (topicsDashboardCard) topicsDashboardCard.scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      }
+    } else {
+      setTimeout(() => {
+        if (topicsDashboardCard) topicsDashboardCard.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    }
+  }
+
+  async function uploadAndIndexVideo() {
+    setProcessing(true, "Ingesting Video...", "Uploading large file and extracting audio track with FFmpeg...", 20, 'upload');
+    updateStepIndicator(1);
+    setStagePill('upload');
+
+    const formData = new FormData();
+    formData.append('file', state.selectedFile);
+    formData.append('audience_mode', state.audienceMode || 'education');
+    state.videoTitle = state.selectedFile ? state.selectedFile.name : 'Uploaded Video';
+
+    if (!state.token) {
+      // Auto-initialize persistent local creator profile so upload is never interrupted
+      state.token = 'guest_token';
+      state.user = { id: 'default_user', name: 'Vidara Creator', display_name: 'Vidara Creator', email: 'creator@vidara.ai' };
+      localStorage.setItem('vidara_token', state.token);
+      localStorage.setItem('vidara_user', JSON.stringify(state.user));
+      updateUserUI();
+    }
+
+    try {
+      setStagePill('audio');
+      const uploadRes = await apiFetch('/api/videos/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!uploadRes.ok) {
+        const errMsg = await parseErrorResponse(uploadRes, "Video upload failed");
+        throw new Error(errMsg);
+      }
+
+      const uploadData = await uploadRes.json();
+      state.videoId = uploadData.video_id;
+      state.duration = uploadData.duration_seconds;
+      if (uploadData.audience_mode) {
+        state.audienceMode = uploadData.audience_mode;
+        const aSelect = document.getElementById('audienceModeSelect');
+        if (aSelect) aSelect.value = state.audienceMode;
+      }
+
+      await runAnalysisPipeline(state.videoId, state.duration);
+
+    } catch (err) {
+      alert(`Vidara Pipeline Error: ${err.message}`);
+      setProcessing(false);
+    }
+  }
+
+  async function importAndIndexVideoUrl(url) {
+    if (!url || !url.trim()) {
+      showToast("Please enter a valid video link.", "warning");
+      alert("Please enter a valid video link.");
+      return;
+    }
+    const cleanUrl = url.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      showToast("Please provide a valid web link starting with http:// or https://", "warning");
+      alert("Please provide a valid web link starting with http:// or https://");
+      return;
+    }
+
+    if (!state.token) {
+      // Auto-initialize persistent local creator profile so link ingestion is never interrupted
+      state.token = 'guest_token';
+      state.user = { id: 'default_user', name: 'Vidara Creator', display_name: 'Vidara Creator', email: 'creator@vidara.ai' };
+      localStorage.setItem('vidara_token', state.token);
+      localStorage.setItem('vidara_user', JSON.stringify(state.user));
+      updateUserUI();
+    }
+
+    // Crucial: Clear any previous local file selection so all video players stream the link video!
+    state.selectedFile = null;
+    if (fileInput) fileInput.value = '';
+    if (videoPreviewBar) videoPreviewBar.classList.add('hidden');
+
+    setProcessing(true, "Importing Video from Link...", "Downloading stream with yt-dlp & extracting audio with FFmpeg...", 20, 'upload');
+    updateStepIndicator(1);
+    setStagePill('upload');
+
+    // Immediately redirect / scroll to the processing pipeline so user sees active progress
+    if (processingCard) {
+      processingCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    try {
+      setStagePill('audio');
+      const ingestRes = await apiFetch('/api/videos/ingest-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: cleanUrl, audience_mode: state.audienceMode || 'education' })
+      });
+
+      if (!ingestRes.ok) {
+        const errMsg = await parseErrorResponse(ingestRes, "Video link ingestion failed");
+        throw new Error(errMsg);
+      }
+
+      const ingestData = await ingestRes.json();
+      state.videoId = ingestData.video_id;
+      state.duration = ingestData.duration_seconds;
+      state.videoTitle = ingestData.filename || 'Imported Video';
+      if (ingestData.audience_mode) {
+        state.audienceMode = ingestData.audience_mode;
+        const aSelect = document.getElementById('audienceModeSelect');
+        if (aSelect) aSelect.value = state.audienceMode;
+      }
+
+      if (videoFileName) videoFileName.textContent = ingestData.filename;
+      if (videoFileStats) videoFileStats.textContent = `${formatTime(state.duration)} • Imported from link`;
+
+      // Immediately display the video in the Video Studio player so the user sees the video right away!
+      const streamUrl = getAuthenticatedMediaUrl(`${state.apiBase}/api/videos/${state.videoId}/stream`);
+      if (finalVideoPlayer) {
+        finalVideoPlayer.src = streamUrl;
+        finalVideoPlayer.load();
+      }
+      if (outputSection) {
+        outputSection.classList.remove('hidden');
+        outputSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      if (nowPlayingLabel) {
+        nowPlayingLabel.textContent = `Streaming: ${escapeHtml(state.videoTitle)}`;
+      }
+
+      // Seamlessly execute Whisper Transcription, Semantic Graph & Topic Clipping
+      await runAnalysisPipeline(state.videoId, state.duration);
+
+    } catch (err) {
+      alert(`Link Import Error: ${err.message}`);
+      setProcessing(false);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 2. MODE A: ASK VIDARA (TEXT OR VOICE)
+  // -------------------------------------------------------------
+  function initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        state.isVoiceRecording = true;
+        voiceQueryBtn.classList.add('recording');
+        voiceStatusPill.classList.remove('hidden');
+      };
+
+      recognition.onresult = (event) => {
+        const transcriptText = event.results[0][0].transcript;
+        queryTextInput.value = transcriptText;
+        voiceStatusPill.classList.add('hidden');
+        state.isVoiceRecording = false;
+        voiceQueryBtn.classList.remove('recording');
+        // Auto-trigger search
+        submitQueryBtn.click();
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        voiceStatusPill.classList.add('hidden');
+        state.isVoiceRecording = false;
+        voiceQueryBtn.classList.remove('recording');
+      };
+
+      recognition.onend = () => {
+        voiceStatusPill.classList.add('hidden');
+        state.isVoiceRecording = false;
+        voiceQueryBtn.classList.remove('recording');
+      };
+
+      state.speechRecognition = recognition;
+    } else {
+      voiceQueryBtn.title = "Voice recognition not supported in this browser. Please type your query.";
+    }
+  }
+
+  voiceQueryBtn.addEventListener('click', () => {
+    if (!state.speechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please type your query in the search bar.");
+      return;
+    }
+    if (state.isVoiceRecording) {
+      state.speechRecognition.stop();
+    } else {
+      state.speechRecognition.start();
+    }
+  });
+
+  samplePromptTags.forEach(tag => {
+    tag.addEventListener('click', () => {
+      queryTextInput.value = tag.getAttribute('data-query');
+      submitQueryBtn.click();
+    });
+  });
+
+
+
+  queryTextInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitQueryBtn.click();
+    }
+  });
+
+  async function executeVideoQuery(query) {
+    if (!state.videoId) {
+      alert("Please select and index a video first.");
+      document.getElementById('uploadSection').scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    setProcessing(true, "Searching Video Moments...", `Finding exact scene for: "${query}"...`, 80, 'rank');
+    updateStepIndicator(3);
+
+    try {
+      const res = await apiFetch(`/api/videos/${state.videoId}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query, voice_input: false })
+      });
+
+      if (!res.ok) {
+        const errMsg = await parseErrorResponse(res, "Query failed");
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      renderQueryResults(data);
+      setProcessing(false);
+      setStagePill('ready');
+      updateStepIndicator(4);
+
+      topicsDashboardCard.classList.remove('hidden');
+      topicsDashboardCard.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (e) {
+      alert(`Query Error: ${e.message}`);
+      setProcessing(false);
+    }
+  }
+
+  submitQueryBtn.addEventListener('click', async () => {
+    let query = queryTextInput.value.trim();
+    if (!query) {
+      // If blank query, switch back to all scenes
+      renderAllScenes(state.allDiscoveredTopics);
+      queryResultsCard.classList.add('hidden');
+      return;
+    }
+    await executeVideoQuery(query);
+  });
+
+  function renderQueryResults(data) {
+    queryResultsCard.classList.remove('hidden');
+    queryConceptsPills.innerHTML = '';
+
+    const isFound = data.found !== false && (data.matched_topics && data.matched_topics.length > 0);
+    const queryResultBadge = document.getElementById('queryResultBadge');
+
+    if (isFound) {
+      if (queryResultBadge) {
+        queryResultBadge.className = 'badge badge-accent';
+        queryResultBadge.textContent = 'Moment Located';
+      }
+
+      (data.understood_concepts || []).forEach(concept => {
+        const badge = document.createElement('span');
+        badge.className = 'concept-badge';
+        badge.textContent = concept;
+        queryConceptsPills.appendChild(badge);
+      });
+
+      queryReasoningText.innerHTML = `<span style="color:var(--color-green);font-weight:600;"><i class="fa-solid fa-circle-check"></i> Grounded Match:</span> ${escapeHtml(data.reasoning || "Vidara retrieved matched sections.")}`;
+
+      // Targeted moment mode: display ONLY the matching scene(s)
+      state.isQueryMode = true;
+      state.topics = data.matched_topics || [];
+
+      if (topicsDashboardTitle) {
+        topicsDashboardTitle.innerHTML = `<i class="fa-solid fa-bullseye icon-accent"></i> TARGETED SCENE: "${escapeHtml(data.query)}"`;
+      }
+    } else {
+      // Content does not exist in the video!
+      if (queryResultBadge) {
+        queryResultBadge.className = 'badge badge-warning';
+        queryResultBadge.textContent = 'Not in Video';
+      }
+
+      const emptyConceptBadge = document.createElement('span');
+      emptyConceptBadge.className = 'concept-badge';
+      emptyConceptBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      emptyConceptBadge.style.color = '#fbbf24';
+      emptyConceptBadge.innerHTML = '<i class="fa-solid fa-ban"></i> No Matching Moments';
+      queryConceptsPills.appendChild(emptyConceptBadge);
+
+      queryReasoningText.innerHTML = `
+        <div class="no-content-alert-box">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <strong>No Such Content in This Video</strong>
+            <p>${escapeHtml(data.reasoning || `Vidara verified the transcript: there is no content or discussion regarding "${data.query}" in this video.`)}</p>
+          </div>
+        </div>
+      `;
+
+      state.isQueryMode = true;
+      state.topics = [];
+
+      if (topicsDashboardTitle) {
+        topicsDashboardTitle.innerHTML = `<i class="fa-solid fa-circle-exclamation icon-accent" style="color:#fbbf24;"></i> NO MATCHING SCENES FOR: "${escapeHtml(data.query)}"`;
+      }
+    }
+
+    if (showAllScenesBtn) {
+      showAllScenesBtn.classList.remove('hidden');
+      if (allScenesCount) allScenesCount.textContent = (state.allDiscoveredTopics || []).length;
+    }
+
+    renderRankedTopics(state.topics);
+  }
+
+  function renderAllScenes(topics) {
+    state.isQueryMode = false;
+    state.topics = (topics && topics.length > 0) ? topics : (state.allDiscoveredTopics || []);
+    if (topicsDashboardTitle) {
+      topicsDashboardTitle.innerHTML = '<i class="fa-solid fa-list-check icon-accent"></i> VIDARA DISCOVERED TOPICS';
+    }
+    if (showAllScenesBtn) {
+      showAllScenesBtn.classList.add('hidden');
+    }
+    renderRankedTopics(state.topics);
+    topicsDashboardCard.classList.remove('hidden');
+  }
+
+  if (showAllScenesBtn) {
+    showAllScenesBtn.addEventListener('click', () => {
+      queryTextInput.value = '';
+      if (uploadQuestionInput) uploadQuestionInput.value = '';
+      renderAllScenes(state.allDiscoveredTopics);
+      queryResultsCard.classList.add('hidden');
+    });
+  }
+
+  async function triggerAutonomousDiscovery() {
+    if (!state.videoId) {
+      alert("Please upload or import a video first.");
+      document.getElementById('uploadSection').scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    setProcessing(true, "Discovering High-Value Moments...", "Analyzing conversation turns, Q&A dynamics, speaker boundaries, and editorial value...", 70, 'topics');
+    updateStepIndicator(3);
+    setStagePill('topics');
+
+    try {
+      const res = await apiFetch(`/api/videos/${state.videoId}/discover-topics`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        const errMsg = await parseErrorResponse(res, "Topic discovery failed");
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      state.topics = data.topics || [];
+      state.allDiscoveredTopics = state.topics;
+
+      setStagePill('rank');
+      setProcessing(true, "Validating Conversational Boundaries...", "Applying 10-point editorial audit & conciseness optimization...", 90, 'boundaries');
+
+      setTimeout(() => {
+        setProcessing(false);
+        setStagePill('ready');
+        updateStepIndicator(4);
+        queryResultsCard.classList.add('hidden');
+        renderAllScenes(state.topics);
+        topicsDashboardCard.classList.remove('hidden');
+        topicsDashboardCard.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+
+    } catch (e) {
+      alert(`Discovery Error: ${e.message}`);
+      setProcessing(false);
+    }
+  }
+
+  if (autoExtractHighlightsBtn) {
+    autoExtractHighlightsBtn.addEventListener('click', async () => {
+      queryTextInput.value = '';
+      if (uploadQuestionInput) uploadQuestionInput.value = '';
+      if (state.allDiscoveredTopics && state.allDiscoveredTopics.length > 0) {
+        renderAllScenes(state.allDiscoveredTopics);
+        queryResultsCard.classList.add('hidden');
+        topicsDashboardCard.classList.remove('hidden');
+        topicsDashboardCard.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        await triggerAutonomousDiscovery();
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // 3. MODE B: DISCOVER IMPORTANT TOPICS (AUTONOMOUS)
+  // -------------------------------------------------------------
+  if (discoverTopicsBtn) {
+    discoverTopicsBtn.addEventListener('click', async () => {
+      await triggerAutonomousDiscovery();
+    });
+  }
+
+  // -------------------------------------------------------------
+  // 4. TOPIC DASHBOARD & SELECTION MANAGEMENT
+  // -------------------------------------------------------------
+  function renderRankedTopics(topics) {
+    rankedTopicsGrid.innerHTML = '';
+    state.selectedTopicIds.clear();
+
+    if (!topics || topics.length === 0) {
+      // Immediately stop any video playback and hide studio so no random video is playing!
+      if (finalVideoPlayer) {
+        try { finalVideoPlayer.pause(); } catch (_) {}
+      }
+      if (outputSection) {
+        outputSection.classList.add('hidden');
+      }
+      if (generateSelectedClipsBtn) generateSelectedClipsBtn.classList.add('hidden');
+      if (mergeSelectedClipsBtn) mergeSelectedClipsBtn.classList.add('hidden');
+      if (selectionPillWrapper) selectionPillWrapper.classList.add('hidden');
+
+      if (state.isQueryMode) {
+        const queryVal = (queryTextInput && queryTextInput.value.trim()) ? queryTextInput.value.trim() : 'your request';
+        rankedTopicsGrid.innerHTML = `
+          <div class="no-content-card">
+            <div class="no-content-icon"><i class="fa-solid fa-file-circle-xmark"></i></div>
+            <h3 class="no-content-title">There is No Such Content in This Video</h3>
+            <p class="no-content-desc">
+              Vidara analyzed the video transcript and intent graph, but detected no moments discussing <strong>"${escapeHtml(queryVal)}"</strong>.
+              The speaker does not cover this topic in the uploaded recording.
+            </p>
+            <div class="no-content-actions">
+              <button type="button" id="returnAllTopicsBtn" class="btn-primary">
+                <i class="fa-solid fa-list-check"></i> View Discovered Video Topics (${(state.allDiscoveredTopics || []).length})
+              </button>
+            </div>
+          </div>
+        `;
+        const retBtn = document.getElementById('returnAllTopicsBtn');
+        if (retBtn) {
+          retBtn.addEventListener('click', () => {
+            if (queryTextInput) queryTextInput.value = '';
+            renderAllScenes(state.allDiscoveredTopics);
+            queryResultsCard.classList.add('hidden');
+          });
+        }
+      } else {
+        rankedTopicsGrid.innerHTML = '<p class="text-secondary">No topics found. Try another query.</p>';
+      }
+      updateSelectionCounter();
+      return;
+    }
+
+    // Restore generation actions when valid topics exist
+    if (generateSelectedClipsBtn) generateSelectedClipsBtn.classList.remove('hidden');
+    if (mergeSelectedClipsBtn) mergeSelectedClipsBtn.classList.remove('hidden');
+    if (selectionPillWrapper) selectionPillWrapper.classList.remove('hidden');
+
+    topics.forEach((t, idx) => {
+      state.selectedTopicIds.add(t.id);
+
+      const card = document.createElement('div');
+      card.className = 'topic-card selected';
+      card.id = `card_${t.id}`;
+
+      const rankStr = String(idx + 1).padStart(2, '0');
+      const startMinSec = formatTime(t.start_time);
+      const endMinSec = formatTime(t.end_time);
+
+      card.innerHTML = `
+        <div class="topic-card-body">
+          <div class="topic-header-row">
+            <div class="topic-title-group">
+              <span class="topic-rank-badge">${rankStr}</span>
+              <h4 class="topic-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h4>
+            </div>
+            <span class="topic-time-badge"><i class="fa-regular fa-clock"></i> ${startMinSec} — ${endMinSec}</span>
+          </div>
+
+          ${(t.speakers_involved && t.speakers_involved.length > 0) ? `
+          <div class="topic-speaker-row">
+            ${t.speakers_involved.map(spk => `<span class="badge badge-speaker"><i class="fa-solid fa-user"></i> ${escapeHtml(spk)}</span>`).join('')}
+          </div>
+          ` : ''}
+
+          <div class="topic-key-insight-box">
+            <div class="key-insight-tag"><i class="fa-solid fa-bolt icon-accent"></i> Key Insight</div>
+            <p class="key-insight-text">${escapeHtml(t.key_information || t.name)}</p>
+          </div>
+
+          <!-- Inline Card Video Player (Plays Right Here in Card) -->
+          <div class="topic-inline-player-box hidden" id="inline_player_${t.id}">
+            <div class="inline-video-wrapper">
+              <video class="inline-preview-video" id="inline_video_${t.id}" playsinline controls preload="metadata"></video>
+              <div class="inline-player-bar">
+                <span class="inline-player-title">${escapeHtml(t.name)} (${startMinSec} — ${endMinSec})</span>
+                <button type="button" class="btn-close-inline" data-topic-id="${t.id}" title="Close preview">
+                  <i class="fa-solid fa-xmark"></i> Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="topic-card-actions">
+          <label class="topic-select-label">
+            <input type="checkbox" class="topic-checkbox" data-topic-id="${t.id}" checked />
+            <span>Select</span>
+          </label>
+          <div class="topic-btn-group">
+            <button type="button" class="btn-ghost btn-topic-action preview-topic-btn" data-topic-id="${t.id}" data-start="${t.start_time}" data-end="${t.end_time}" data-title="${escapeHtml(t.name)}">
+              <i class="fa-solid fa-play"></i> Preview
+            </button>
+            <button type="button" class="btn-ghost btn-topic-action save-topic-btn" data-topic-id="${t.id}" data-title="${escapeHtml(t.name)}" data-start="${t.start_time}" data-end="${t.end_time}" title="Save clip permanently to My Library">
+              <i class="fa-regular fa-bookmark"></i> Save
+            </button>
+            <button type="button" class="btn-ghost btn-topic-action ai-notes-topic-btn" data-topic-id="${t.id}" data-title="${escapeHtml(t.name)}" data-start="${t.start_time}" data-end="${t.end_time}" title="Notes with Text-to-Speech">Notes</button>
+            <button type="button" class="btn-primary btn-topic-action generate-single-clip-btn" data-topic-id="${t.id}">
+              <i class="fa-solid fa-scissors"></i> Clip
+            </button>
+          </div>
+        </div>
+      `;
+
+      rankedTopicsGrid.appendChild(card);
+    });
+
+    updateSelectionCounter();
+    bindTopicCardEvents();
+  }
+
+  let activeInlineVideoPlayer = null;
+  let activeInlineTimeHandler = null;
+  let activeInlineBtn = null;
+
+  function toggleInlineTopicPreview(topicId, start, end, title, btn) {
+    if (!state.videoId && !state.selectedFile) {
+      showToast("Please upload or import a video first.", "error");
+      return;
+    }
+
+    const playerBox = document.getElementById(`inline_player_${topicId}`);
+    const videoElem = document.getElementById(`inline_video_${topicId}`);
+    if (!playerBox || !videoElem) return;
+
+    // If this player is already open, close it
+    if (!playerBox.classList.contains('hidden') && activeInlineVideoPlayer === videoElem) {
+      closeActiveInlinePreview();
+      return;
+    }
+
+    // Close any other active inline video
+    closeActiveInlinePreview();
+
+    const fullVideoUrl = state.selectedFile
+      ? URL.createObjectURL(state.selectedFile)
+      : getAuthenticatedMediaUrl(`${state.apiBase}/api/videos/${state.videoId}/stream`);
+
+    playerBox.classList.remove('hidden');
+    activeInlineVideoPlayer = videoElem;
+    activeInlineBtn = btn;
+    if (btn) {
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+    }
+
+    const seekAndPlay = () => {
+      try {
+        videoElem.currentTime = Math.max(0, start);
+      } catch (err) {
+        console.warn("Could not set currentTime immediately:", err);
+      }
+      const playPromise = videoElem.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          videoElem.muted = true;
+          videoElem.play().catch(() => {});
+        });
+      }
+
+      if (end && end > start) {
+        activeInlineTimeHandler = () => {
+          if (videoElem.currentTime >= end) {
+            videoElem.currentTime = start;
+            videoElem.pause();
+            if (activeInlineBtn) {
+              activeInlineBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Replay';
+            }
+          }
+        };
+        videoElem.addEventListener('timeupdate', activeInlineTimeHandler);
+      }
+    };
+
+    if (videoElem.src && (videoElem.src === fullVideoUrl || videoElem.src.includes(`${state.videoId}/stream`))) {
+      seekAndPlay();
+    } else {
+      videoElem.src = fullVideoUrl;
+      videoElem.addEventListener('loadedmetadata', seekAndPlay, { once: true });
+      videoElem.load();
+    }
+  }
+
+  function closeActiveInlinePreview() {
+    if (activeInlineVideoPlayer) {
+      try {
+        activeInlineVideoPlayer.pause();
+        if (activeInlineTimeHandler) {
+          activeInlineVideoPlayer.removeEventListener('timeupdate', activeInlineTimeHandler);
+          activeInlineTimeHandler = null;
+        }
+      } catch {}
+      const parentBox = activeInlineVideoPlayer.closest('.topic-inline-player-box');
+      if (parentBox) parentBox.classList.add('hidden');
+      activeInlineVideoPlayer = null;
+    }
+    if (activeInlineBtn) {
+      activeInlineBtn.innerHTML = '<i class="fa-solid fa-play"></i> Preview';
+      activeInlineBtn = null;
+    }
+  }
+
+  function bindTopicCardEvents() {
+    // Topic card checkboxes
+    document.querySelectorAll('.topic-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const tid = e.target.getAttribute('data-topic-id');
+        const card = document.getElementById(`card_${tid}`);
+        if (e.target.checked) {
+          state.selectedTopicIds.add(tid);
+          if (card) card.classList.add('selected');
+        } else {
+          state.selectedTopicIds.delete(tid);
+          if (card) card.classList.remove('selected');
+        }
+        updateSelectionCounter();
+      });
+    });
+
+    // Inline Preview button
+    document.querySelectorAll('.preview-topic-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-topic-id');
+        const start = parseFloat(btn.getAttribute('data-start') || '0');
+        const end = parseFloat(btn.getAttribute('data-end') || '0');
+        const title = btn.getAttribute('data-title') || '';
+        toggleInlineTopicPreview(tid, start, end, title, btn);
+      });
+    });
+
+    // Close Inline Preview buttons
+    document.querySelectorAll('.btn-close-inline').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeActiveInlinePreview();
+      });
+    });
+
+    // Save Topic button
+    document.querySelectorAll('.save-topic-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-topic-id');
+        const title = btn.getAttribute('data-title') || 'Topic Cut';
+        const start = parseFloat(btn.getAttribute('data-start') || '0');
+        const end = parseFloat(btn.getAttribute('data-end') || '0');
+        const dur = Math.max(1, Math.round(end - start));
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+        const success = await saveClipToLibrary({
+          video_id: state.videoId,
+          clip_id: tid,
+          title: title,
+          start_time: start,
+          end_time: end,
+          duration: dur,
+          video_url: `/api/videos/${state.videoId}/clip/${tid}`,
+          download_url: `/api/videos/${state.videoId}/clip/${tid}`
+        });
+
+        if (success) {
+          btn.innerHTML = '<i class="fa-solid fa-bookmark" style="color:var(--color-green);"></i> Saved';
+          btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+          btn.style.color = 'var(--color-green)';
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-regular fa-bookmark"></i> Save';
+        }
+      });
+    });
+
+    // AI Notes button on Topic Cards
+    document.querySelectorAll('.ai-notes-topic-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-topic-id');
+        const title = btn.getAttribute('data-title') || 'Topic Cut';
+        const start = parseFloat(btn.getAttribute('data-start') || '0');
+        const end = parseFloat(btn.getAttribute('data-end') || '0');
+        openClipNotes(tid, title, start, end);
+      });
+    });
+
+    // Single Clip Generation
+    document.querySelectorAll('.generate-single-clip-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const tid = btn.getAttribute('data-topic-id');
+        await generateClips([tid]);
+      });
+    });
+  }
+
+  let activePreviewStopHandler = null;
+
+  function previewAtTimestamp(start, end = null, title = '') {
+    if (!state.videoId && !state.selectedFile) {
+      alert("Please upload or import a video first.");
+      return;
+    }
+
+    if (outputSection) {
+      outputSection.classList.remove('hidden');
+    }
+
+    const fullVideoUrl = state.selectedFile 
+      ? URL.createObjectURL(state.selectedFile) 
+      : getAuthenticatedMediaUrl(`${state.apiBase}/api/videos/${state.videoId}/stream`);
+
+    if (activePreviewStopHandler) {
+      finalVideoPlayer.removeEventListener('timeupdate', activePreviewStopHandler);
+      activePreviewStopHandler = null;
+    }
+
+    const seekAndPlay = () => {
+      try {
+        finalVideoPlayer.currentTime = Math.max(0, start);
+      } catch (err) {
+        console.warn("Could not set currentTime immediately:", err);
+      }
+      const playPromise = finalVideoPlayer.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          finalVideoPlayer.muted = true;
+          finalVideoPlayer.play().catch(() => {});
+        });
+      }
+
+      if (end && end > start) {
+        activePreviewStopHandler = () => {
+          if (finalVideoPlayer.currentTime >= end) {
+            finalVideoPlayer.pause();
+            finalVideoPlayer.removeEventListener('timeupdate', activePreviewStopHandler);
+            activePreviewStopHandler = null;
+          }
+        };
+        finalVideoPlayer.addEventListener('timeupdate', activePreviewStopHandler);
+      }
+    };
+
+    const isCurrentSource = finalVideoPlayer.src && 
+      (finalVideoPlayer.src.includes(`${state.videoId}/stream`) || (state.selectedFile && finalVideoPlayer.src.startsWith('blob:')));
+
+    if (isCurrentSource && finalVideoPlayer.readyState >= 1) {
+      seekAndPlay();
+    } else {
+      finalVideoPlayer.src = fullVideoUrl;
+      finalVideoPlayer.addEventListener('loadedmetadata', seekAndPlay, { once: true });
+      finalVideoPlayer.load();
+    }
+
+    if (nowPlayingLabel) {
+      nowPlayingLabel.textContent = title ? `Previewing Scene: ${title} (${formatTime(start)} — ${formatTime(end || start + 15)})` : `Previewing Scene at ${formatTime(start)}`;
+    }
+
+    if (tabMergedVideo) tabMergedVideo.classList.remove('active');
+    if (tabIndividualClips) tabIndividualClips.classList.remove('active');
+
+    if (outputSection) {
+      outputSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  }
+
+  selectAllTopicsCheckbox.addEventListener('change', (e) => {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('.topic-checkbox').forEach(cb => {
+      cb.checked = isChecked;
+      const tid = cb.getAttribute('data-topic-id');
+      const card = document.getElementById(`card_${tid}`);
+      if (isChecked) {
+        state.selectedTopicIds.add(tid);
+        if (card) card.classList.add('selected');
+      } else {
+        state.selectedTopicIds.delete(tid);
+        if (card) card.classList.remove('selected');
+      }
+    });
+    updateSelectionCounter();
+  });
+
+  function updateSelectionCounter() {
+    const count = state.selectedTopicIds.size;
+    selectedCountBadge.textContent = `${count} Selected`;
+    if (selectAllTopicsCheckbox) {
+      selectAllTopicsCheckbox.checked = (count === state.topics.length && count > 0);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 5. CLIP GENERATION & SELECTIVE MERGE
+  // -------------------------------------------------------------
+  function updateStudioMetrics(origDuration, repurposedDuration) {
+    const orig = origDuration || state.duration || 0;
+    const repur = repurposedDuration || 0;
+
+    if (metricOriginalDuration) {
+      metricOriginalDuration.textContent = formatTime(orig);
+    }
+    if (metricRepurposedDuration) {
+      metricRepurposedDuration.textContent = formatTime(repur);
+    }
+    if (metricCompression) {
+      const pct = (orig > 0 && repur > 0) ? Math.max(0, Math.min(99, Math.round((1 - (repur / orig)) * 100))) : 0;
+      const savedSec = Math.max(0, orig - repur);
+      metricCompression.textContent = `${pct}% Context-Preserving Compression`;
+      if (metricCompressionDetail) {
+        metricCompressionDetail.textContent = `Saved ${formatTime(savedSec)} (${pct}% reduction) with zero syllable clipping & complete boundaries preserved.`;
+      }
+    }
+  }
+
+  function playClipInStudio(clip, idx, clipUrl) {
+    state.activeClip = clip;
+
+    if (!clipUrl) {
+      const endpoint = clip.video_url || clip.download_url || `/api/videos/${state.videoId}/clip/${clip.topic_id || clip.id}`;
+      clipUrl = getAuthenticatedMediaUrl(`${state.apiBase}${endpoint}?t=${Date.now()}`);
+    } else {
+      clipUrl = getAuthenticatedMediaUrl(clipUrl);
+    }
+
+    if (outputSection) {
+      outputSection.classList.remove('hidden');
+    }
+
+    finalVideoPlayer.src = clipUrl;
+    finalVideoPlayer.load();
+
+    const rawSubUrl = clip.subtitle_url 
+      ? `${state.apiBase}${clip.subtitle_url}` 
+      : `${state.apiBase}/api/videos/${state.videoId}/clip/${clip.topic_id || clip.id}/subtitles`;
+    const subUrl = getAuthenticatedMediaUrl(rawSubUrl);
+
+    if (videoSubtitlesTrack) {
+      videoSubtitlesTrack.src = subUrl;
+      videoSubtitlesTrack.default = true;
+    }
+    if (downloadSubtitlesBtn) {
+      downloadSubtitlesBtn.href = subUrl;
+      downloadSubtitlesBtn.style.display = 'inline-flex';
+    }
+
+    const playPromise = finalVideoPlayer.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // If unmuted autoplay blocked by browser policy, play muted so user sees video
+        finalVideoPlayer.muted = true;
+        finalVideoPlayer.play().catch(() => {});
+      });
+    }
+
+    // Highlight active playlist item
+    document.querySelectorAll('.studio-clip-item').forEach((item, i) => {
+      const btn = item.querySelector('.studio-clip-play-btn');
+      if (i === idx) {
+        item.classList.add('active-clip');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Playing';
+      } else {
+        item.classList.remove('active-clip');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-play"></i> Play';
+      }
+    });
+
+    const clipName = clip.text || clip.name || `Topic Cut ${idx + 1}`;
+    if (nowPlayingLabel) nowPlayingLabel.textContent = `Active: Clip ${idx + 1} — ${clipName} (${clip.duration}s)`;
+    if (downloadVideoBtn) {
+      downloadVideoBtn.href = clipUrl;
+      downloadVideoBtn.setAttribute('download', clip.filename || `clip_${idx + 1}.mp4`);
+    }
+    if (downloadVideoBtnText) {
+      downloadVideoBtnText.textContent = `Download Clip ${idx + 1} (${clip.duration}s)`;
+    }
+
+    updateStudioMetrics(state.duration, clip.duration);
+
+    if (tabIndividualClips) tabIndividualClips.classList.add('active');
+    if (tabMergedVideo) tabMergedVideo.classList.remove('active');
+    if (outputSection) outputSection.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function renderStudioClipsPlaylist(clips, activeIdx = 0) {
+    clipsCountBadge.textContent = clips.length;
+
+    if (studioClipsList) {
+      studioClipsList.innerHTML = '';
+      if (!clips || clips.length === 0) {
+        studioClipsList.innerHTML = `<p class="text-secondary" style="font-size: 0.82rem; padding: 0.5rem 0;">No clips rendered yet. Click "Generate Selected Clips" or "Merge" above.</p>`;
+      } else {
+        clips.forEach((c, idx) => {
+          const clipItem = document.createElement('div');
+          clipItem.className = `studio-clip-item ${idx === activeIdx ? 'active-clip' : ''}`;
+          clipItem.id = `studioClip_${idx}`;
+          const clipUrl = `${state.apiBase}${c.video_url || c.download_url}?t=${Date.now()}`;
+          const clipName = c.text || c.name || `Topic Cut ${idx + 1}`;
+
+          clipItem.innerHTML = `
+            <div class="studio-clip-info">
+              <span class="studio-clip-badge">Clip ${idx + 1}</span>
+              <span class="studio-clip-title" title="${escapeHtml(clipName)}">${escapeHtml(clipName)}</span>
+              ${c.key_information ? `<span style="display:block; font-size:0.74rem; color:var(--text-secondary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:260px; margin-top:2px;">${escapeHtml(c.key_information)}</span>` : ''}
+            </div>
+            <div class="studio-clip-meta">
+              <span class="studio-clip-duration">${c.duration}s</span>
+              <button class="btn-icon-subtle studio-clip-notes-btn" data-index="${idx}" title="AI Notes with Text-to-Speech">
+                <i class="fa-solid fa-book-open"></i>
+              </button>
+              <button class="btn-icon-subtle studio-clip-save-btn" data-index="${idx}" title="Save permanently to My Library">
+                <i class="fa-regular fa-bookmark"></i>
+              </button>
+              <button class="studio-clip-play-btn" data-url="${clipUrl}" data-index="${idx}">
+                <i class="fa-solid fa-play"></i> ${idx === activeIdx ? 'Playing' : 'Play'}
+              </button>
+            </div>
+          `;
+
+          clipItem.addEventListener('click', (e) => {
+            if (e.target.closest('.studio-clip-save-btn')) return;
+            playClipInStudio(c, idx, clipUrl);
+          });
+
+          studioClipsList.appendChild(clipItem);
+        });
+
+        // Bind playlist AI Notes button events
+        document.querySelectorAll('.studio-clip-notes-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+            const clip = clips[idx];
+            if (!clip) return;
+            const clipName = clip.text || clip.name || `Topic Cut ${idx + 1}`;
+            openClipNotes(clip.topic_id || clip.id || `clip_${idx}`, clipName, clip.start_time || 0, clip.end_time || (clip.start_time + clip.duration));
+          });
+        });
+
+        // Bind playlist bookmark button events
+        document.querySelectorAll('.studio-clip-save-btn').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+            const clip = clips[idx];
+            if (!clip) return;
+            const clipName = clip.text || clip.name || `Topic Cut ${idx + 1}`;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            const ok = await saveClipToLibrary({
+              video_id: state.videoId,
+              clip_id: clip.topic_id || clip.id || `clip_${idx}`,
+              title: clipName,
+              start_time: clip.start_time || 0,
+              end_time: clip.end_time || clip.duration,
+              duration: clip.duration,
+              video_url: clip.video_url || clip.download_url,
+              download_url: clip.download_url || clip.video_url
+            });
+            if (ok) {
+              btn.innerHTML = '<i class="fa-solid fa-bookmark" style="color:var(--color-green);"></i>';
+            } else {
+              btn.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
+            }
+          });
+        });
+      }
+    }
+
+    if (clipsGrid) {
+      clipsGrid.innerHTML = '';
+      clips.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.className = 'clip-card';
+        const clipUrl = `${state.apiBase}${c.video_url || c.download_url}?t=${Date.now()}`;
+        const clipName = c.text || c.name || `Topic Cut ${idx + 1}`;
+        card.innerHTML = `
+          <div class="clip-card-header">
+            <div class="clip-badge"><i class="fa-solid fa-film"></i> Clip ${idx + 1}</div>
+            <span class="clip-time">${c.duration}s</span>
+          </div>
+          <div class="clip-card-body">
+            <p class="clip-transcript-snip"><strong>${escapeHtml(clipName)}</strong></p>
+            ${c.key_information ? `<p style="font-size: 0.8rem; color: var(--text-secondary); margin: 4px 0 8px 0; line-height: 1.35;">${escapeHtml(c.key_information)}</p>` : ''}
+            <div class="clip-footer-actions" style="margin-top: 10px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+              <button class="btn-ghost btn-sm clip-notes-grid-btn" data-index="${idx}">Notes</button>
+              <button class="btn-ghost btn-sm save-grid-clip-btn" data-index="${idx}">
+                <i class="fa-regular fa-bookmark"></i> Save
+              </button>
+              <a href="${clipUrl}" download="${c.filename}" class="btn-ghost btn-sm">
+                <i class="fa-solid fa-download"></i> Download
+              </a>
+              <button class="btn-primary btn-sm play-clip-btn" data-url="${clipUrl}" data-index="${idx}">
+                <i class="fa-solid fa-play"></i> Play in Studio
+              </button>
+            </div>
+          </div>
+        `;
+        clipsGrid.appendChild(card);
+      });
+
+      document.querySelectorAll('.clip-notes-grid-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+          const clip = clips[idx] || clips[0];
+          if (!clip) return;
+          const clipName = clip.text || clip.name || `Topic Cut ${idx + 1}`;
+          openClipNotes(clip.topic_id || clip.id || `clip_${idx}`, clipName, clip.start_time || 0, clip.end_time || (clip.start_time + clip.duration));
+        });
+      });
+
+      document.querySelectorAll('.save-grid-clip-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+          const clip = clips[idx] || clips[0];
+          const clipName = clip.text || clip.name || `Topic Cut ${idx + 1}`;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+          const ok = await saveClipToLibrary({
+            video_id: state.videoId,
+            clip_id: clip.topic_id || clip.id || `clip_${idx}`,
+            title: clipName,
+            start_time: clip.start_time || 0,
+            end_time: clip.end_time || clip.duration,
+            duration: clip.duration,
+            video_url: clip.video_url || clip.download_url,
+            download_url: clip.download_url || clip.video_url
+          });
+          if (ok) {
+            btn.innerHTML = '<i class="fa-solid fa-bookmark" style="color:var(--color-green);"></i> Saved';
+          } else {
+            btn.innerHTML = '<i class="fa-regular fa-bookmark"></i> Save';
+          }
+        });
+      });
+
+      document.querySelectorAll('.play-clip-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+          const clip = clips[idx] || clips[0];
+          playClipInStudio(clip, idx, btn.getAttribute('data-url'));
+          outputSection.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+    }
+  }
+
+  generateSelectedClipsBtn.addEventListener('click', async () => {
+    let ids = Array.from(state.selectedTopicIds);
+    if (ids.length === 0) {
+      if (state.topics && state.topics.length > 0) {
+        ids = state.topics.map(t => t.id);
+      } else {
+        alert("Please select at least one topic to generate clips.");
+        return;
+      }
+    }
+    await generateClips(ids);
+  });
+
+  async function generateClips(topicIds) {
+    if (!state.videoId) return;
+    setProcessing(true, "Rendering Individual Topic Clips...", `Deterministically rendering ${topicIds.length} clip(s) with FFmpeg (+80ms lead-in, +160ms tail-out)...`, 85, 'boundaries');
+    try {
+      const res = await apiFetch(`/api/videos/${state.videoId}/generate-clips`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic_ids: topicIds })
+      });
+
+      if (!res.ok) {
+        const errMsg = await parseErrorResponse(res, "Clip generation failed");
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      state.clips = data.clips || [];
+      renderStudioClipsPlaylist(state.clips, 0);
+
+      // Immediately display and play Clip 1 right in the Studio Player!
+      if (state.clips.length > 0) {
+        const firstClip = state.clips[0];
+        const clipUrl = `${state.apiBase}${firstClip.video_url || firstClip.download_url}?t=${Date.now()}`;
+        playClipInStudio(firstClip, 0, clipUrl);
+      }
+
+      const totalClipsDur = state.clips.reduce((acc, c) => acc + (c.duration || 0), 0);
+      updateStudioMetrics(state.duration, totalClipsDur);
+
+      setProcessing(false);
+      outputSection.classList.remove('hidden');
+      tabIndividualClips.classList.add('active');
+      tabMergedVideo.classList.remove('active');
+      outputSection.scrollIntoView({ behavior: 'smooth' });
+
+    } catch (e) {
+      alert(`Clip Generation Error: ${e.message}`);
+      setProcessing(false);
+    }
+  }
+
+  mergeSelectedClipsBtn.addEventListener('click', async () => {
+    await mergeSelectedClips();
+  });
+
+  quickMergeSelectedBtn.addEventListener('click', async () => {
+    await mergeSelectedClips();
+  });
+
+  if (mergeClipsActionBtn) {
+    mergeClipsActionBtn.addEventListener('click', async () => {
+      await mergeSelectedClips();
+    });
+  }
+
+  async function mergeSelectedClips() {
+    let ids = Array.from(state.selectedTopicIds);
+    if (ids.length === 0) {
+      if (state.topics && state.topics.length > 0) {
+        ids = state.topics.map(t => t.id);
+      } else if (state.clips && state.clips.length > 0) {
+        ids = state.clips.map(c => c.topic_id || c.id);
+      }
+    }
+
+    if (!state.videoId) {
+      showToast("Please upload and index a video first.", "warning");
+      alert("Please upload and index a video first.");
+      return;
+    }
+
+    if (ids.length === 0) {
+      showToast("No topics or clips selected to merge.", "warning");
+      alert("No topics found to merge.");
+      return;
+    }
+
+    setProcessing(true, "Merging Selected Clips...", `Assembling ${ids.length} verified clip(s) with deterministic FFmpeg concat...`, 90, 'boundaries');
+    try {
+      const res = await apiFetch(`/api/videos/${state.videoId}/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic_ids: ids })
+      });
+
+      if (!res.ok) {
+        const errMsg = await parseErrorResponse(res, "Merge failed");
+        throw new Error(errMsg);
+      }
+
+      const data = await res.json();
+      state.mergedVideoUrl = getAuthenticatedMediaUrl(`${state.apiBase}${data.video_url}?t=${Date.now()}`);
+      state.mergedDuration = data.total_duration || 0;
+
+      // Refresh clips list in background
+      try {
+        const clipsRes = await apiFetch(`/api/videos/${state.videoId}/clips`);
+        if (clipsRes.ok) {
+          const clipsData = await clipsRes.json();
+          state.clips = clipsData.clips || [];
+          renderStudioClipsPlaylist(state.clips, -1);
+        }
+      } catch (cErr) {
+        console.warn("Clips reload:", cErr);
+      }
+
+      // Update player with merged video and play immediately!
+      finalVideoPlayer.src = state.mergedVideoUrl;
+      finalVideoPlayer.load();
+      finalVideoPlayer.play().catch(e => console.log("Playback deferred:", e));
+
+      downloadVideoBtn.href = state.mergedVideoUrl;
+      if (downloadVideoBtnText) {
+        downloadVideoBtnText.textContent = "Download Merged Master (.mp4)";
+      }
+      downloadVideoBtn.setAttribute('download', `${state.videoId}_merged_master.mp4`);
+
+      // Update metrics with merged duration & compression %
+      const totalMergedDur = data.total_duration || state.clips.reduce((acc, c) => acc + (c.duration || 0), 0);
+      updateStudioMetrics(state.duration, totalMergedDur);
+
+      if (nowPlayingLabel) {
+        nowPlayingLabel.textContent = "Active: Merged Master Video";
+      }
+      tabMergedVideo.classList.add('active');
+      tabIndividualClips.classList.remove('active');
+
+      setProcessing(false);
+      outputSection.classList.remove('hidden');
+      outputSection.scrollIntoView({ behavior: 'smooth' });
+      showToast("Selected clips successfully merged into unified master video!", "success");
+
+    } catch (e) {
+      setProcessing(false);
+      showToast(`Merge Error: ${e.message}`, "error");
+      alert(`Merge Error: ${e.message}`);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 6. STUDIO TABS (MERGED MASTER VS INDIVIDUAL CLIPS)
+  // -------------------------------------------------------------
+  tabMergedVideo.addEventListener('click', () => {
+    tabMergedVideo.classList.add('active');
+    tabIndividualClips.classList.remove('active');
+    if (individualClipsPanel) individualClipsPanel.classList.add('hidden');
+    if (studioPlaylistContainer) studioPlaylistContainer.classList.remove('hidden');
+    if (state.mergedVideoUrl) {
+      finalVideoPlayer.src = state.mergedVideoUrl;
+      finalVideoPlayer.load();
+      finalVideoPlayer.play().catch(() => {});
+      if (nowPlayingLabel) nowPlayingLabel.textContent = "Active: Merged Master Video";
+      downloadVideoBtn.href = state.mergedVideoUrl;
+      if (downloadVideoBtnText) downloadVideoBtnText.textContent = "Download Merged Master (.mp4)";
+      downloadVideoBtn.setAttribute('download', `${state.videoId}_merged_master.mp4`);
+      const totalClipsDur = state.clips.reduce((acc, c) => acc + (c.duration || 0), 0);
+      const mergedDur = state.mergedDuration || totalClipsDur;
+      updateStudioMetrics(state.duration, mergedDur);
+    } else {
+      mergeSelectedClips();
+    }
+  });
+
+  tabIndividualClips.addEventListener('click', () => {
+    tabIndividualClips.classList.add('active');
+    tabMergedVideo.classList.remove('active');
+    if (individualClipsPanel) individualClipsPanel.classList.remove('hidden');
+    if (state.clips && state.clips.length > 0) {
+      playClipInStudio(state.clips[0], 0, `${state.apiBase}${state.clips[0].video_url || state.clips[0].download_url}?t=${Date.now()}`);
+    } else {
+      const ids = Array.from(state.selectedTopicIds);
+      if (ids.length > 0) {
+        generateClips(ids);
+      }
+    }
+  });
+
+  // -------------------------------------------------------------
+  // 7. PRESERVED AUDIENCE PROFILES & CONFIG
+  // -------------------------------------------------------------
+  async function fetchAudiences() {
+    try {
+      const res = await fetch(`${state.apiBase}/api/audience/profiles`);
+      if (res.ok) {
+        state.audiences = await res.json();
+        renderAudiences(state.audiences);
+      }
+    } catch (e) {
+      console.warn("Could not fetch audience profiles:", e);
+    }
+  }
+
+  function renderAudiences(audiences) {
+    if (!audienceGrid) return;
+    audienceGrid.innerHTML = '';
+    audiences.forEach((a, idx) => {
+      const card = document.createElement('div');
+      card.className = `audience-card ${idx === 0 ? 'selected' : ''}`;
+      card.innerHTML = `
+        <div class="card-icon"><i class="fa-solid fa-users"></i></div>
+        <h3>${escapeHtml(a.name)}</h3>
+        <p class="target-role">${escapeHtml(a.target_role)}</p>
+        <p class="desc">${escapeHtml(a.description)}</p>
+        <div class="compression-pill"><i class="fa-solid fa-compress"></i> ${escapeHtml(a.compression_target)}</div>
+      `;
+      audienceGrid.appendChild(card);
+    });
+  }
+
+  // -------------------------------------------------------------
+  // UTILITIES & PROGRESS HELPERS
+  // -------------------------------------------------------------
+  function setProcessing(show, title = '', detail = '', pct = 25, stageKey = null) {
+    if (show) {
+      processingCard.classList.remove('hidden');
+      processingTitle.textContent = title;
+      processingDetail.textContent = detail;
+      progressBar.style.width = `${pct}%`;
+      if (stageKey) setStagePill(stageKey);
+    } else {
+      processingCard.classList.add('hidden');
+    }
+  }
+
+  function setStagePill(activeKey) {
+    Object.keys(stagePills).forEach(k => {
+      if (stagePills[k]) {
+        if (k === activeKey) stagePills[k].classList.add('active');
+        else stagePills[k].classList.remove('active');
+      }
+    });
+  }
+
+  function updateStepIndicator(stepNum) {
+    for (let i = 1; i <= 4; i++) {
+      const el = document.getElementById(`stepIndicator${i}`);
+      if (el) {
+        if (i <= stepNum) el.classList.add('active');
+        else el.classList.remove('active');
+      }
+    }
+  }
+
+  function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return "00:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // -------------------------------------------------------------
+  // TOAST NOTIFICATIONS & AUTH UTILITIES
+  // -------------------------------------------------------------
+  function showToast(message, type = 'success', duration = 3500) {
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toastContainer';
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast-notification ${type}`;
+    const iconClass = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info');
+    toast.innerHTML = `<i class="fa-solid ${iconClass}"></i> <span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('hide');
+      setTimeout(() => toast.remove(), 350);
+    }, duration);
+  }
+
+  function getAuthHeaders(includeContentType = true) {
+    const headers = {};
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (state.token) {
+      headers['Authorization'] = `Bearer ${state.token}`;
+    }
+    return headers;
+  }
+
+  function getAuthenticatedMediaUrl(url) {
+    if (!url || typeof url !== 'string') return url || '';
+    if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+    if (!state.token) return url;
+    try {
+      const sep = url.includes('?') ? '&' : '?';
+      return `${url}${sep}token=${encodeURIComponent(state.token)}`;
+    } catch {
+      return url;
+    }
+  }
+
+  function saveSession(token, user, remember = true) {
+    state.token = token;
+    state.user = user;
+    // Always persist to localStorage for permanent sessions (no session expiration timing)
+    localStorage.setItem('vidara_token', token);
+    localStorage.setItem('vidara_user', JSON.stringify(user));
+    sessionStorage.removeItem('vidara_token');
+    sessionStorage.removeItem('vidara_user');
+    updateUserUI();
+  }
+
+  function clearSession() {
+    state.token = null;
+    state.user = null;
+    state.resetToken = null;
+    localStorage.removeItem('vidara_token');
+    localStorage.removeItem('vidara_user');
+    sessionStorage.removeItem('vidara_token');
+    sessionStorage.removeItem('vidara_user');
+    updateUserUI();
+  }
+
+  async function apiFetch(url, options = {}) {
+    const fullUrl = url.startsWith('http') ? url : `${state.apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
+    const headers = Object.assign({}, options.headers || {});
+    if (state.token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${state.token}`;
+    }
+    const opts = Object.assign({}, options, { headers });
+    return await fetch(fullUrl, opts);
+  }
+
+  function updateUserUI() {
+    if (state.token && state.user) {
+      if (authBtn) authBtn.classList.add('hidden');
+      if (userProfilePill) userProfilePill.classList.remove('hidden');
+      if (userNameLabel) {
+        userNameLabel.textContent = state.user.name || state.user.username || 'User';
+      }
+      if (userAvatarMini) {
+        if (state.user.avatar_url) {
+          userAvatarMini.innerHTML = `<img src="${escapeHtml(state.user.avatar_url)}" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+        } else {
+          const nameToUse = state.user.name || state.user.username || state.user.email || 'U';
+          const initial = nameToUse.charAt(0).toUpperCase();
+          userAvatarMini.textContent = initial;
+        }
+      }
+      refreshLibraryCount();
+    } else {
+      if (authBtn) authBtn.classList.remove('hidden');
+      if (userProfilePill) userProfilePill.classList.add('hidden');
+      if (navLibraryCountBadge) navLibraryCountBadge.textContent = '0';
+    }
+  }
+
+  async function checkAuthState() {
+    // Permanent session: retain existing session, do not interrupt with session timeouts or popups
+    if (!state.token) {
+      updateUserUI();
+      return;
+    }
+    try {
+      const res = await apiFetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.user) {
+          state.user = data.user;
+          localStorage.setItem('vidara_user', JSON.stringify(state.user));
+        }
+      }
+      updateUserUI();
+    } catch (e) {
+      console.warn("Could not check auth state:", e);
+      updateUserUI();
+    }
+  }
+
+  async function refreshLibraryCount() {
+    if (!state.token) return;
+    try {
+      const res = await apiFetch('/api/library/clips');
+      if (res.ok) {
+        const data = await res.json();
+        const count = data.count || 0;
+        if (navLibraryCountBadge) navLibraryCountBadge.textContent = count;
+        if (libClipsCountBadge) libClipsCountBadge.textContent = count;
+      }
+    } catch (e) {
+      console.warn("Could not refresh library count:", e);
+    }
+  }
+
+  async function saveClipToLibrary(clipData) {
+    if (!state.token) {
+      showToast("Please sign in to save clips permanently to your dashboard.", "info", 4000);
+      if (authModal) authModal.classList.remove('hidden');
+      if (typeof window.switchAuthView === 'function') window.switchAuthView('login');
+      return false;
+    }
+
+    try {
+      const payload = {
+        video_id: clipData.video_id || state.videoId || 'active',
+        clip_id: String(clipData.clip_id),
+        title: clipData.title || 'Saved Topic Clip',
+        video_title: clipData.video_title || state.videoTitle || 'Video',
+        start_time: parseFloat(clipData.start_time) || 0,
+        end_time: parseFloat(clipData.end_time) || parseFloat(clipData.duration) || 10,
+        duration: parseFloat(clipData.duration) || 10,
+        video_url: clipData.video_url || '',
+        download_url: clipData.download_url || clipData.video_url || ''
+      };
+
+      const res = await apiFetch('/api/library/clips/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errMsg = await parseErrorResponse(res, "Could not save clip to library");
+        throw new Error(errMsg);
+      }
+
+      const resData = await res.json();
+      showToast(resData.message || `"${payload.title}" saved to your permanent library!`, "success");
+      refreshLibraryCount();
+      return true;
+    } catch (err) {
+      showToast(err.message, "error");
+      return false;
+    }
+  }
+
+  // -------------------------------------------------------------
+  // COMPLETE SUPABASE AUTHENTICATION CONTROLLER
+  // -------------------------------------------------------------
+  function initAuthUI() {
+    // Views
+    const authModalTitle = document.getElementById('authModalTitle');
+    const authModalSubtitle = document.getElementById('authModalSubtitle');
+    const viewAuthLogin = document.getElementById('viewAuthLogin');
+    const viewAuthSignup = document.getElementById('viewAuthSignup');
+    const viewAuthForgot = document.getElementById('viewAuthForgot');
+    const viewAuthReset = document.getElementById('viewAuthReset');
+    const viewAuthVerifyPending = document.getElementById('viewAuthVerifyPending');
+    const viewAuthCallback = document.getElementById('viewAuthCallback');
+
+    // Alerts
+    const loginAlert = document.getElementById('loginAlert');
+    const signupAlert = document.getElementById('signupAlert');
+    const forgotAlert = document.getElementById('forgotAlert');
+    const resetAlert = document.getElementById('resetAlert');
+
+    // Forms & Inputs
+    const loginForm = document.getElementById('loginForm');
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPassword = document.getElementById('loginPassword');
+    const loginRememberMe = document.getElementById('loginRememberMe');
+    const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+    const toggleLoginPassword = document.getElementById('toggleLoginPassword');
+    const linkForgotPassword = document.getElementById('linkForgotPassword');
+    const linkToSignUp = document.getElementById('linkToSignUp');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+
+    const signupForm = document.getElementById('signupForm');
+    const signupUsername = document.getElementById('signupUsername');
+    const signupEmail = document.getElementById('signupEmail');
+    const signupPassword = document.getElementById('signupPassword');
+    const signupConfirmPassword = document.getElementById('signupConfirmPassword');
+    const signupSubmitBtn = document.getElementById('signupSubmitBtn');
+    const toggleSignupPassword = document.getElementById('toggleSignupPassword');
+    const toggleSignupConfirmPassword = document.getElementById('toggleSignupConfirmPassword');
+    const linkToLogin = document.getElementById('linkToLogin');
+    const googleSignupBtn = document.getElementById('googleSignupBtn');
+
+    const forgotForm = document.getElementById('forgotForm');
+    const forgotEmail = document.getElementById('forgotEmail');
+    const forgotSubmitBtn = document.getElementById('forgotSubmitBtn');
+    const linkBackToLoginFromForgot = document.getElementById('linkBackToLoginFromForgot');
+
+    const resetForm = document.getElementById('resetForm');
+    const resetNewPassword = document.getElementById('resetNewPassword');
+    const resetConfirmPassword = document.getElementById('resetConfirmPassword');
+    const resetSubmitBtn = document.getElementById('resetSubmitBtn');
+    const toggleResetNewPassword = document.getElementById('toggleResetNewPassword');
+    const toggleResetConfirmPassword = document.getElementById('toggleResetConfirmPassword');
+    const linkBackToLoginFromReset = document.getElementById('linkBackToLoginFromReset');
+
+    const verifyPendingEmailBadge = document.getElementById('verifyPendingEmailBadge');
+    const resendVerificationBtn = document.getElementById('resendVerificationBtn');
+    const linkBackToLoginFromVerify = document.getElementById('linkBackToLoginFromVerify');
+    const callbackStatusText = document.getElementById('callbackStatusText');
+
+    let pendingVerificationEmail = '';
+
+    // Alert helper
+    function showAlert(alertEl, message, isError = true) {
+      if (!alertEl) return;
+      alertEl.textContent = message;
+      alertEl.className = `auth-alert ${isError ? 'error' : 'success'}`;
+      alertEl.classList.remove('hidden');
+    }
+
+    function hideAlert(alertEl) {
+      if (!alertEl) return;
+      alertEl.classList.add('hidden');
+      alertEl.textContent = '';
+    }
+
+    // Password visibility toggle setup
+    function setupPasswordToggle(inputEl, btnEl) {
+      if (!inputEl || !btnEl) return;
+      btnEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isPassword = inputEl.type === 'password';
+        inputEl.type = isPassword ? 'text' : 'password';
+        const icon = btnEl.querySelector('i');
+        if (icon) {
+          icon.className = isPassword ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        }
+      });
+    }
+
+    setupPasswordToggle(loginPassword, toggleLoginPassword);
+    setupPasswordToggle(signupPassword, toggleSignupPassword);
+    setupPasswordToggle(signupConfirmPassword, toggleSignupConfirmPassword);
+    setupPasswordToggle(resetNewPassword, toggleResetNewPassword);
+    setupPasswordToggle(resetConfirmPassword, toggleResetConfirmPassword);
+
+    function clearAuthInputs() {
+      if (loginEmail) loginEmail.value = '';
+      if (loginPassword) loginPassword.value = '';
+      if (signupUsername) signupUsername.value = '';
+      if (signupEmail) signupEmail.value = '';
+      if (signupPassword) signupPassword.value = '';
+      if (signupConfirmPassword) signupConfirmPassword.value = '';
+      if (forgotEmail) forgotEmail.value = '';
+      if (resetNewPassword) resetNewPassword.value = '';
+      if (resetConfirmPassword) resetConfirmPassword.value = '';
+      try {
+        if (loginForm) loginForm.reset();
+        if (signupForm) signupForm.reset();
+      } catch (_) {}
+    }
+
+    // View switcher
+    function switchAuthView(viewName, data = {}) {
+      const views = [viewAuthLogin, viewAuthSignup, viewAuthForgot, viewAuthReset, viewAuthVerifyPending, viewAuthCallback];
+      views.forEach(v => v && v.classList.add('hidden'));
+
+      hideAlert(loginAlert);
+      hideAlert(signupAlert);
+      hideAlert(forgotAlert);
+      hideAlert(resetAlert);
+
+      switch (viewName) {
+        case 'signup':
+          clearAuthInputs();
+          if (viewAuthSignup) viewAuthSignup.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Create Account';
+          if (authModalSubtitle) authModalSubtitle.textContent = 'Start analyzing long-form videos with autonomous topic discovery.';
+          if (signupUsername) signupUsername.focus();
+          break;
+        case 'forgot':
+          if (viewAuthForgot) viewAuthForgot.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Reset Password';
+          if (authModalSubtitle) authModalSubtitle.textContent = "We'll send you a secure link to reset your account password.";
+          if (forgotEmail) {
+            forgotEmail.value = (data && data.email) ? data.email : '';
+            forgotEmail.focus();
+          }
+          break;
+        case 'reset':
+          if (viewAuthReset) viewAuthReset.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Set New Password';
+          if (authModalSubtitle) authModalSubtitle.textContent = 'Choose a new strong password for your Vidara account.';
+          if (resetNewPassword) resetNewPassword.focus();
+          break;
+        case 'verify_pending':
+          if (viewAuthVerifyPending) viewAuthVerifyPending.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Verify Your Email';
+          if (authModalSubtitle) authModalSubtitle.textContent = 'Please confirm your email address to activate your account.';
+          if (verifyPendingEmailBadge && data.email) {
+            verifyPendingEmailBadge.textContent = data.email;
+            pendingVerificationEmail = data.email;
+          }
+          break;
+        case 'callback':
+          if (viewAuthCallback) viewAuthCallback.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Authenticating...';
+          if (authModalSubtitle) authModalSubtitle.textContent = 'Verifying your credentials and synchronizing your workspace...';
+          if (callbackStatusText && data.status) callbackStatusText.textContent = data.status;
+          break;
+        case 'login':
+        default:
+          clearAuthInputs();
+          if (viewAuthLogin) viewAuthLogin.classList.remove('hidden');
+          if (authModalTitle) authModalTitle.textContent = 'Welcome to Vidara';
+          if (authModalSubtitle) authModalSubtitle.textContent = 'Sign in to save your clips and access your personal video library.';
+          if (loginEmail) {
+            loginEmail.value = (data && data.email) ? data.email : '';
+            loginEmail.focus();
+          }
+          if (loginPassword) {
+            loginPassword.value = '';
+          }
+          // Aggressively purge browser-saved autofill from input fields
+          const purgeAutofilledCreds = () => {
+            if (loginEmail && (!data || !data.email)) loginEmail.value = '';
+            if (loginPassword) loginPassword.value = '';
+          };
+          setTimeout(purgeAutofilledCreds, 30);
+          setTimeout(purgeAutofilledCreds, 100);
+          setTimeout(purgeAutofilledCreds, 300);
+          break;
+      }
+    }
+    window.switchAuthView = switchAuthView;
+
+    // View Navigation Links
+    if (authBtn) {
+      authBtn.addEventListener('click', () => {
+        if (authModal) {
+          clearAuthInputs();
+          authModal.classList.remove('hidden');
+          switchAuthView('login');
+        }
+      });
+    }
+
+    if (closeAuthModalBtn) {
+      closeAuthModalBtn.addEventListener('click', () => {
+        clearAuthInputs();
+        if (authModal) authModal.classList.add('hidden');
+      });
+    }
+
+    if (authModal) {
+      authModal.addEventListener('click', (e) => {
+        if (e.target === authModal) authModal.classList.add('hidden');
+      });
+    }
+
+    if (linkToSignUp) {
+      linkToSignUp.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthView('signup');
+      });
+    }
+
+    if (linkToLogin) {
+      linkToLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthView('login');
+      });
+    }
+
+    if (linkForgotPassword) {
+      linkForgotPassword.addEventListener('click', (e) => {
+        e.preventDefault();
+        const currentEmail = loginEmail ? loginEmail.value.trim() : '';
+        switchAuthView('forgot', { email: currentEmail });
+      });
+    }
+
+    if (linkBackToLoginFromForgot) {
+      linkBackToLoginFromForgot.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthView('login');
+      });
+    }
+
+    if (linkBackToLoginFromReset) {
+      linkBackToLoginFromReset.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthView('login');
+      });
+    }
+
+    if (linkBackToLoginFromVerify) {
+      linkBackToLoginFromVerify.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchAuthView('login');
+      });
+    }
+
+    // Email & Password Validation Rules
+    function isValidEmail(email) {
+      return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
+    }
+
+    function isValidUsername(username) {
+      return /^[a-zA-Z0-9_]{3,30}$/.test(username);
+    }
+
+    function validatePasswordPolicy(password) {
+      if (password.length < 8) return "Password must be at least 8 characters long.";
+      if (!/[a-zA-Z]/.test(password)) return "Password must contain at least one letter.";
+      if (!/[0-9]/.test(password)) return "Password must contain at least one number.";
+      return null;
+    }
+
+    // 1. LOGIN SUBMISSION
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert(loginAlert);
+
+        const email = loginEmail ? loginEmail.value.trim() : '';
+        const password = loginPassword ? loginPassword.value : '';
+        const remember = loginRememberMe ? loginRememberMe.checked : true;
+
+        if (!email) {
+          showAlert(loginAlert, "Please enter your email address.");
+          loginEmail && loginEmail.focus();
+          return;
+        }
+        if (!isValidEmail(email)) {
+          showAlert(loginAlert, "Please enter a valid email address.");
+          loginEmail && loginEmail.focus();
+          return;
+        }
+        if (!password) {
+          showAlert(loginAlert, "Please enter your password.");
+          loginPassword && loginPassword.focus();
+          return;
+        }
+
+        loginSubmitBtn.disabled = true;
+        loginSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing In...';
+
+        try {
+          const res = await fetch(`${state.apiBase}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.detail || data.message || "Invalid email or password.");
+          }
+
+          saveSession(data.token, data.user, remember);
+          if (authModal) authModal.classList.add('hidden');
+          showToast(`Welcome back, ${data.user.name || data.user.username || 'Creator'}!`, "success");
+
+          // Reset inputs
+          if (loginPassword) loginPassword.value = '';
+
+        } catch (err) {
+          showAlert(loginAlert, err.message);
+        } finally {
+          loginSubmitBtn.disabled = false;
+          loginSubmitBtn.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In';
+        }
+      });
+    }
+
+    // 2. SIGN UP SUBMISSION
+    if (signupForm) {
+      signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert(signupAlert);
+
+        const username = signupUsername ? signupUsername.value.trim() : '';
+        const email = signupEmail ? signupEmail.value.trim() : '';
+        const password = signupPassword ? signupPassword.value : '';
+        const confirmPassword = signupConfirmPassword ? signupConfirmPassword.value : '';
+
+        if (!username) {
+          showAlert(signupAlert, "Please choose a username.");
+          signupUsername && signupUsername.focus();
+          return;
+        }
+        if (!isValidUsername(username)) {
+          showAlert(signupAlert, "Username must be 3–30 characters and contain only letters, numbers, and underscores.");
+          signupUsername && signupUsername.focus();
+          return;
+        }
+        if (!email || !isValidEmail(email)) {
+          showAlert(signupAlert, "Please enter a valid email address.");
+          signupEmail && signupEmail.focus();
+          return;
+        }
+
+        const pwdError = validatePasswordPolicy(password);
+        if (pwdError) {
+          showAlert(signupAlert, pwdError);
+          signupPassword && signupPassword.focus();
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showAlert(signupAlert, "Passwords do not match. Please re-enter.");
+          signupConfirmPassword && signupConfirmPassword.focus();
+          return;
+        }
+
+        signupSubmitBtn.disabled = true;
+        signupSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating Account...';
+
+        try {
+          const res = await fetch(`${state.apiBase}/api/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username,
+              email,
+              password,
+              confirm_password: confirmPassword
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.detail || data.message || "Failed to create account.");
+          }
+
+          if (data.status === 'verification_pending' || !data.token) {
+            switchAuthView('verify_pending', { email });
+          } else {
+            saveSession(data.token, data.user, true);
+            if (authModal) authModal.classList.add('hidden');
+            showToast(`Welcome to Vidara, ${data.user.username}!`, "success");
+            signupForm.reset();
+          }
+
+        } catch (err) {
+          showAlert(signupAlert, err.message);
+        } finally {
+          signupSubmitBtn.disabled = false;
+          signupSubmitBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create Account';
+        }
+      });
+    }
+
+    // 3. FORGOT PASSWORD SUBMISSION
+    if (forgotForm) {
+      forgotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert(forgotAlert);
+
+        const email = forgotEmail ? forgotEmail.value.trim() : '';
+        if (!email || !isValidEmail(email)) {
+          showAlert(forgotAlert, "Please enter a valid email address.");
+          forgotEmail && forgotEmail.focus();
+          return;
+        }
+
+        forgotSubmitBtn.disabled = true;
+        forgotSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending Link...';
+
+        try {
+          const redirectUrl = `${window.location.origin}${window.location.pathname}`;
+          const res = await fetch(`${state.apiBase}/api/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, redirect_url: redirectUrl })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.detail || data.message || "Failed to send reset link.");
+          }
+
+          showAlert(forgotAlert, data.message || `Password reset link sent to ${email}. Please check your inbox.`, false);
+          if (forgotEmail) forgotEmail.value = '';
+
+        } catch (err) {
+          showAlert(forgotAlert, err.message);
+        } finally {
+          forgotSubmitBtn.disabled = false;
+          forgotSubmitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Password Reset Link';
+        }
+      });
+    }
+
+    // 4. RESET PASSWORD SUBMISSION
+    if (resetForm) {
+      resetForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert(resetAlert);
+
+        const newPassword = resetNewPassword ? resetNewPassword.value : '';
+        const confirmPassword = resetConfirmPassword ? resetConfirmPassword.value : '';
+
+        const pwdError = validatePasswordPolicy(newPassword);
+        if (pwdError) {
+          showAlert(resetAlert, pwdError);
+          resetNewPassword && resetNewPassword.focus();
+          return;
+        }
+
+        if (newPassword !== confirmPassword) {
+          showAlert(resetAlert, "Passwords do not match.");
+          resetConfirmPassword && resetConfirmPassword.focus();
+          return;
+        }
+
+        resetSubmitBtn.disabled = true;
+        resetSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating...';
+
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (state.resetToken) {
+            headers['Authorization'] = `Bearer ${state.resetToken}`;
+          }
+
+          const res = await fetch(`${state.apiBase}/api/auth/reset-password`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              new_password: newPassword,
+              confirm_password: confirmPassword,
+              token: state.resetToken || undefined
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.detail || data.message || "Password update failed.");
+          }
+
+          showToast("Password updated successfully! Please sign in with your new password.", "success", 5000);
+          state.resetToken = null;
+          switchAuthView('login');
+
+        } catch (err) {
+          showAlert(resetAlert, err.message);
+        } finally {
+          resetSubmitBtn.disabled = false;
+          resetSubmitBtn.innerHTML = '<i class="fa-solid fa-key"></i> Update Password';
+        }
+      });
+    }
+
+    // 5. RESEND VERIFICATION EMAIL
+    if (resendVerificationBtn) {
+      resendVerificationBtn.addEventListener('click', async () => {
+        const emailToResend = pendingVerificationEmail || (signupEmail ? signupEmail.value.trim() : '');
+        if (!emailToResend) {
+          showToast("No pending email found to resend to.", "error");
+          return;
+        }
+        resendVerificationBtn.disabled = true;
+        resendVerificationBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resending...';
+        try {
+          const res = await fetch(`${state.apiBase}/api/auth/resend-verification`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailToResend })
+          });
+          const data = await res.json();
+          showToast(data.message || `Verification link resent to ${emailToResend}!`, "success");
+        } catch (e) {
+          showToast("Could not resend email right now. Please try again later.", "error");
+        } finally {
+          resendVerificationBtn.disabled = false;
+          resendVerificationBtn.innerHTML = '<i class="fa-solid fa-arrow-rotate-right"></i> Resend Verification Email';
+        }
+      });
+    }
+
+    // 6. GOOGLE OAUTH FLOW
+    async function startGoogleOAuth() {
+      const targetRedirect = `${window.location.origin}${window.location.pathname}`;
+      try {
+        const res = await fetch(`${state.apiBase}/api/auth/google/url?redirect_to=${encodeURIComponent(targetRedirect)}`);
+        const data = await res.json();
+        if (res.ok && data.url) {
+          window.location.href = data.url;
+        } else {
+          showToast(data.detail || "Google OAuth is not configured on Supabase yet.", "error");
+        }
+      } catch (e) {
+        showToast(`Could not start Google Sign-In: ${e.message}`, "error");
+      }
+    }
+
+    if (googleLoginBtn) {
+      googleLoginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startGoogleOAuth();
+      });
+    }
+
+    if (googleSignupBtn) {
+      googleSignupBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        startGoogleOAuth();
+      });
+    }
+
+    const guestContinueBtn = document.getElementById('guestContinueBtn');
+    if (guestContinueBtn) {
+      guestContinueBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        state.token = 'guest_token';
+        state.user = { id: 'default_user', name: 'Vidara Creator', display_name: 'Vidara Creator', email: 'creator@vidara.ai' };
+        localStorage.setItem('vidara_token', state.token);
+        localStorage.setItem('vidara_user', JSON.stringify(state.user));
+        updateUserUI();
+        if (authModal) authModal.classList.add('hidden');
+        showToast("Continuing as Vidara Creator.", "success");
+        if (state.selectedFile) {
+          uploadAndIndexVideo();
+        } else if (videoUrlInput && videoUrlInput.value.trim()) {
+          importAndIndexVideoUrl(videoUrlInput.value.trim());
+        }
+      });
+    }
+
+    // 7. OAUTH REDIRECT & RECOVERY URL HANDLER
+    function handleAuthUrlCallbacks() {
+      // Check hash params (Supabase default OAuth & magic link redirect)
+      const hash = window.location.hash ? window.location.hash.substring(1) : '';
+      if (hash && (hash.includes('access_token=') || hash.includes('error='))) {
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const type = params.get('type');
+        const errorDesc = params.get('error_description') || params.get('error');
+
+        // Clear hash immediately for privacy
+        window.history.replaceState(null, null, window.location.pathname + window.location.search);
+
+        if (errorDesc) {
+          showToast(`Authentication failed: ${decodeURIComponent(errorDesc)}`, "error", 5000);
+          return;
+        }
+
+        if (type === 'recovery' && accessToken) {
+          state.resetToken = accessToken;
+          if (authModal) authModal.classList.remove('hidden');
+          switchAuthView('reset');
+          showToast("Please set a new password for your account.", "info", 5000);
+          return;
+        }
+
+        if (accessToken) {
+          if (authModal) authModal.classList.remove('hidden');
+          switchAuthView('callback', { status: 'Verifying authenticated session...' });
+
+          // Fetch user profile with this token
+          fetch(`${state.apiBase}/api/auth/me`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.user) {
+              saveSession(accessToken, data.user, true);
+              if (authModal) authModal.classList.add('hidden');
+              showToast(`Welcome to Vidara, ${data.user.name || data.user.username || 'Creator'}!`, "success");
+            } else {
+              switchAuthView('login');
+              showAlert(loginAlert, "Could not load user profile.");
+            }
+          })
+          .catch(err => {
+            switchAuthView('login');
+            showAlert(loginAlert, `Authentication error: ${err.message}`);
+          });
+          return;
+        }
+      }
+
+      // Check query params (?code=... or ?token=...)
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = urlParams.get('token');
+      if (queryToken) {
+        urlParams.delete('token');
+        const newSearch = urlParams.toString() ? `?${urlParams.toString()}` : '';
+        window.history.replaceState(null, null, window.location.pathname + newSearch);
+
+        fetch(`${state.apiBase}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${queryToken}` }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            saveSession(queryToken, data.user, true);
+            showToast(`Welcome back, ${data.user.name || data.user.username || 'Creator'}!`, "success");
+          }
+        })
+        .catch(() => {});
+      }
+    }
+
+    handleAuthUrlCallbacks();
+
+    // 8. LOGOUT ACTION
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to sign out? Your saved clips and projects will remain securely preserved in Supabase.")) return;
+        try {
+          await apiFetch('/api/auth/logout', { method: 'POST' });
+        } catch (_) {}
+        clearSession();
+        showToast("You have been signed out.", "info");
+      });
+    }
+  }
+
+  // -------------------------------------------------------------
+  // PERMANENT LIBRARY & DASHBOARD MODAL
+  // -------------------------------------------------------------
+  function initLibraryUI() {
+    if (navLibraryBtn) {
+      navLibraryBtn.addEventListener('click', () => {
+        if (!state.token) {
+          showToast("Please sign in to access your permanent library.", "info");
+          if (authModal) authModal.classList.remove('hidden');
+          return;
+        }
+        if (libraryModal) {
+          libraryModal.classList.remove('hidden');
+          loadLibraryClips();
+          loadLibraryVideos();
+        }
+      });
+    }
+
+    if (closeLibraryModalBtn) {
+      closeLibraryModalBtn.addEventListener('click', () => {
+        if (libraryModal) libraryModal.classList.add('hidden');
+      });
+    }
+
+    if (libraryModal) {
+      libraryModal.addEventListener('click', (e) => {
+        if (e.target === libraryModal) libraryModal.classList.add('hidden');
+      });
+    }
+
+    if (tabLibClips && tabLibVideos) {
+      tabLibClips.addEventListener('click', () => {
+        tabLibClips.classList.add('active');
+        tabLibVideos.classList.remove('active');
+        if (panelLibClips) panelLibClips.classList.remove('hidden');
+        if (panelLibVideos) panelLibVideos.classList.add('hidden');
+      });
+
+      tabLibVideos.addEventListener('click', () => {
+        tabLibVideos.classList.add('active');
+        tabLibClips.classList.remove('active');
+        if (panelLibVideos) panelLibVideos.classList.remove('hidden');
+        if (panelLibClips) panelLibClips.classList.add('hidden');
+      });
+    }
+
+    if (saveCurrentStudioClipBtn) {
+      saveCurrentStudioClipBtn.addEventListener('click', async () => {
+        if (!state.videoId) {
+          showToast("Please select or import a video first.", "info");
+          return;
+        }
+
+        const clip = state.activeClip || {
+          clip_id: `scene_${Date.now()}`,
+          title: state.videoTitle ? `${state.videoTitle} (Highlight)` : 'Featured Moment',
+          duration: state.duration || 60,
+          start_time: 0,
+          end_time: state.duration || 60,
+          video_url: finalVideoPlayer.src || `/api/videos/${state.videoId}/stream`
+        };
+
+        saveCurrentStudioClipBtn.disabled = true;
+        saveCurrentStudioClipBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+        const ok = await saveClipToLibrary({
+          video_id: state.videoId,
+          clip_id: clip.topic_id || clip.id || clip.clip_id,
+          title: clip.text || clip.name || clip.title || 'Saved Moment',
+          start_time: clip.start_time || 0,
+          end_time: clip.end_time || clip.duration || 60,
+          duration: clip.duration || 60,
+          video_url: clip.video_url || finalVideoPlayer.src,
+          download_url: clip.download_url || clip.video_url || finalVideoPlayer.src
+        });
+
+        if (ok) {
+          saveCurrentStudioClipBtn.innerHTML = '<i class="fa-solid fa-bookmark" style="color:var(--color-green);"></i> Saved to Library';
+        } else {
+          saveCurrentStudioClipBtn.disabled = false;
+          saveCurrentStudioClipBtn.innerHTML = '<i class="fa-regular fa-bookmark"></i> Save to Library';
+        }
+      });
+    }
+  }
+
+  async function loadLibraryClips() {
+    if (!state.token || !savedClipsGrid) return;
+    savedClipsGrid.innerHTML = '<p class="text-secondary" style="padding: 1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading your preserved clips...</p>';
+
+    try {
+      const res = await fetch(`${state.apiBase}/api/library/clips`, {
+        headers: getAuthHeaders(false)
+      });
+
+      if (!res.ok) throw new Error("Could not fetch library clips");
+
+      const data = await res.json();
+      const clips = data.clips || [];
+
+      if (libClipsCountBadge) libClipsCountBadge.textContent = clips.length;
+      if (navLibraryCountBadge) navLibraryCountBadge.textContent = clips.length;
+
+      if (clips.length === 0) {
+        savedClipsGrid.innerHTML = '';
+        if (emptyLibraryClipsMsg) emptyLibraryClipsMsg.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyLibraryClipsMsg) emptyLibraryClipsMsg.classList.add('hidden');
+      savedClipsGrid.innerHTML = '';
+
+      clips.forEach((c) => {
+        const card = document.createElement('div');
+        card.className = 'saved-clip-card';
+        card.id = `libCard_${c.id}`;
+
+        const clipUrl = `${state.apiBase}${c.video_url || c.download_url}?t=${Date.now()}`;
+        const timeStr = `${formatTime(c.start_time)} — ${formatTime(c.end_time)}`;
+
+        card.innerHTML = `
+          <div>
+            <div class="saved-clip-header">
+              <span class="badge badge-accent" style="font-size:0.75rem;"><i class="fa-solid fa-film"></i> ${escapeHtml(c.video_title || 'Video')}</span>
+              <span class="badge badge-neutral" style="font-size:0.75rem;"><i class="fa-regular fa-clock"></i> ${Math.round(c.duration)}s</span>
+            </div>
+            <h4 class="saved-clip-title" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</h4>
+            <div class="saved-clip-meta">
+              <span>Timestamp: ${timeStr}</span>
+            </div>
+          </div>
+          <div class="saved-clip-actions">
+            <button class="btn-primary btn-sm lib-play-btn" data-url="${clipUrl}" data-title="${escapeHtml(c.title)}" data-duration="${c.duration}">
+              <i class="fa-solid fa-play"></i> Play
+            </button>
+            <a href="${clipUrl}" download="${c.clip_id}.mp4" class="btn-ghost btn-sm" title="Download MP4">
+              <i class="fa-solid fa-download"></i>
+            </a>
+            <button class="btn-danger-outline btn-sm lib-del-btn" data-id="${c.id}" title="Delete clip permanently">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+
+        savedClipsGrid.appendChild(card);
+      });
+
+      // Play button in library
+      savedClipsGrid.querySelectorAll('.lib-play-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const url = btn.getAttribute('data-url');
+          const title = btn.getAttribute('data-title');
+          const dur = parseFloat(btn.getAttribute('data-duration') || '10');
+
+          if (libraryModal) libraryModal.classList.add('hidden');
+          playClipInStudio({
+            text: title,
+            duration: dur,
+            video_url: url
+          }, 0, url);
+        });
+      });
+
+      // Delete button in library
+      savedClipsGrid.querySelectorAll('.lib-del-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          if (!confirm("Are you sure you want to permanently delete this clip from your dashboard?")) return;
+
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+          try {
+            const delRes = await fetch(`${state.apiBase}/api/library/clips/${id}`, {
+              method: 'DELETE',
+              headers: getAuthHeaders(false)
+            });
+
+            if (!delRes.ok) throw new Error("Could not delete clip");
+
+            const cardEl = document.getElementById(`libCard_${id}`);
+            if (cardEl) cardEl.remove();
+
+            refreshLibraryCount();
+            showToast("Clip removed from your library.", "info");
+
+            if (savedClipsGrid.children.length === 0 && emptyLibraryClipsMsg) {
+              emptyLibraryClipsMsg.classList.remove('hidden');
+            }
+          } catch (err) {
+            showToast(err.message, "error");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+          }
+        });
+      });
+
+    } catch (e) {
+      savedClipsGrid.innerHTML = `<p class="text-secondary" style="color:#ef4444; padding:1rem;"><i class="fa-solid fa-circle-exclamation"></i> ${e.message}</p>`;
+    }
+  }
+
+  async function loadLibraryVideos() {
+    if (!state.token || !savedVideosList) return;
+    savedVideosList.innerHTML = '<p class="text-secondary" style="padding: 1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading uploaded projects...</p>';
+
+    try {
+      const res = await fetch(`${state.apiBase}/api/library/videos`, {
+        headers: getAuthHeaders(false)
+      });
+
+      if (!res.ok) throw new Error("Could not fetch video projects");
+
+      const data = await res.json();
+      const videos = data.videos || [];
+
+      if (libVideosCountBadge) libVideosCountBadge.textContent = videos.length;
+
+      if (videos.length === 0) {
+        savedVideosList.innerHTML = '';
+        if (emptyLibraryVideosMsg) emptyLibraryVideosMsg.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyLibraryVideosMsg) emptyLibraryVideosMsg.classList.add('hidden');
+      savedVideosList.innerHTML = '';
+
+      videos.forEach(v => {
+        const row = document.createElement('div');
+        row.className = 'saved-video-row';
+        row.id = `libVideoRow_${v.id}`;
+        row.innerHTML = `
+          <div>
+            <h4 style="font-size:0.92rem; font-weight:600; color:#fff; margin-bottom:4px;">
+              <i class="fa-solid fa-file-video icon-accent"></i> ${escapeHtml(v.filename)}
+            </h4>
+            <div style="font-size:0.78rem; color:var(--text-muted); display:flex; gap:12px;">
+              <span>Duration: ${formatTime(v.duration)}</span>
+              <span>Size: ${(v.filesize / (1024 * 1024)).toFixed(1)} MB</span>
+              <span>Added: ${v.created_at ? v.created_at.slice(0, 10) : 'Recent'}</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-ghost btn-sm load-video-project-btn" data-id="${v.id}" data-filename="${escapeHtml(v.filename)}" data-duration="${v.duration}">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Open
+            </button>
+            <button class="btn-danger-outline btn-sm delete-video-project-btn" data-id="${v.id}" data-filename="${escapeHtml(v.filename)}" title="Delete project permanently">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+        `;
+        savedVideosList.appendChild(row);
+      });
+
+      savedVideosList.querySelectorAll('.load-video-project-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const vid = btn.getAttribute('data-id');
+          const fname = btn.getAttribute('data-filename');
+          const dur = parseFloat(btn.getAttribute('data-duration') || '0');
+
+          state.videoId = vid;
+          state.duration = dur;
+          state.videoTitle = fname;
+
+          if (videoFileName) videoFileName.textContent = fname;
+          if (videoFileStats) videoFileStats.textContent = `${formatTime(dur)} • Loaded from Library`;
+          if (videoPreviewBar) videoPreviewBar.classList.remove('hidden');
+
+          if (libraryModal) libraryModal.classList.add('hidden');
+          showToast(`Loaded "${fname}" into active workspace.`, "success");
+
+          previewAtTimestamp(0, null, fname);
+        });
+      });
+
+      savedVideosList.querySelectorAll('.delete-video-project-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const vid = btn.getAttribute('data-id');
+          const fname = btn.getAttribute('data-filename');
+          if (!confirm(`Are you sure you want to delete "${fname}" and all its analysis, clips, and storage files?`)) return;
+
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+          try {
+            const delRes = await apiFetch(`/api/videos/${vid}`, { method: 'DELETE' });
+            if (!delRes.ok) throw new Error("Could not delete video project");
+
+            if (state.videoId === vid) {
+              state.videoId = null;
+              state.duration = 0;
+              state.clips = [];
+              state.topics = [];
+              if (videoPreviewBar) videoPreviewBar.classList.add('hidden');
+            }
+
+            showToast(`Deleted "${fname}".`, "info");
+            loadLibraryVideos();
+          } catch (err) {
+            showToast(err.message, "error");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+          }
+        });
+      });
+
+    } catch (e) {
+      savedVideosList.innerHTML = `<p class="text-secondary" style="color:#ef4444; padding:1rem;"><i class="fa-solid fa-circle-exclamation"></i> ${e.message}</p>`;
+    }
+  }
+
+  // -------------------------------------------------------------
+  // API KEY CONFIGURATION MODAL (DUAL KEYS + MASTER KEY)
+  // -------------------------------------------------------------
+  const configKeyBtn = document.getElementById('configKeyBtn');
+  const configModal = document.getElementById('configModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const saveConfigBtn = document.getElementById('saveConfigBtn');
+  const inputGroqSttKey = document.getElementById('inputGroqSttKey');
+  const inputGroqLlmKey = document.getElementById('inputGroqLlmKey');
+  const inputGroqKey = document.getElementById('inputGroqKey');
+
+  async function loadCurrentKeys() {
+    try {
+      const res = await fetch(`${state.apiBase}/api/settings/keys`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.masked_stt && inputGroqSttKey) inputGroqSttKey.placeholder = `Current: ${data.masked_stt}`;
+        if (data.masked_llm && inputGroqLlmKey) inputGroqLlmKey.placeholder = `Current: ${data.masked_llm}`;
+        if (data.masked_master && inputGroqKey) inputGroqKey.placeholder = `Current: ${data.masked_master}`;
+      }
+    } catch (e) {
+      console.warn("Could not load key status:", e);
+    }
+  }
+
+  if (configKeyBtn) {
+    configKeyBtn.addEventListener('click', () => {
+      if (configModal) {
+        configModal.classList.remove('hidden');
+        loadCurrentKeys();
+      }
+    });
+  }
+
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      if (configModal) configModal.classList.add('hidden');
+    });
+  }
+
+  if (saveConfigBtn) {
+    saveConfigBtn.addEventListener('click', async () => {
+      const sttKey = inputGroqSttKey ? inputGroqSttKey.value.trim() : '';
+      const llmKey = inputGroqLlmKey ? inputGroqLlmKey.value.trim() : '';
+      const masterKey = inputGroqKey ? inputGroqKey.value.trim() : '';
+
+      if (!sttKey && !llmKey && !masterKey) {
+        alert("Please enter at least one Groq API key.");
+        return;
+      }
+
+      saveConfigBtn.disabled = true;
+      saveConfigBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+      try {
+        const res = await fetch(`${state.apiBase}/api/settings/keys`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            groq_stt_key: sttKey || undefined,
+            groq_llm_key: llmKey || undefined,
+            groq_api_key: masterKey || undefined
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          alert("Groq credentials saved successfully and applied immediately!");
+          if (configModal) configModal.classList.add('hidden');
+          if (inputGroqSttKey) inputGroqSttKey.value = '';
+          if (inputGroqLlmKey) inputGroqLlmKey.value = '';
+          if (inputGroqKey) inputGroqKey.value = '';
+        } else {
+          alert(`Error saving credentials: ${data.detail || 'Unknown error'}`);
+        }
+      } catch (e) {
+        alert(`Failed to save keys: ${e.message}`);
+      } finally {
+        saveConfigBtn.disabled = false;
+        saveConfigBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save & Apply Credentials';
+      }
+    });
+  }
+
+  // ====================================================
+  // 8. AUDIENCE-AWARE AI NOTES & TEXT-TO-SPEECH CONTROLLER
+  // ====================================================
+  const audienceModeSelect = document.getElementById('audienceModeSelect');
+  const audienceModeHelpText = document.getElementById('audienceModeHelpText');
+  const clipNotesModal = document.getElementById('clipNotesModal');
+  const closeNotesModalBtn = document.getElementById('closeNotesModalBtn');
+  const copyNotesBtn = document.getElementById('copyNotesBtn');
+  const notesClipTitle = document.getElementById('notesClipTitle');
+  const notesAudienceBadge = document.getElementById('notesAudienceBadge');
+  const notesClipMeta = document.getElementById('notesClipMeta');
+  const notesLoadingState = document.getElementById('notesLoadingState');
+  const notesContentContainer = document.getElementById('notesContentContainer');
+  const notesModeEduBtn = document.getElementById('notesModeEduBtn');
+  const notesModeProBtn = document.getElementById('notesModeProBtn');
+  const notesModeCreatorBtn = document.getElementById('notesModeCreatorBtn');
+  const ttsPlayAllBtn = document.getElementById('ttsPlayAllBtn');
+  const ttsPauseBtn = document.getElementById('ttsPauseBtn');
+  const ttsStopBtn = document.getElementById('ttsStopBtn');
+  const ttsStatusPill = document.getElementById('ttsStatusPill');
+  const ttsStatusText = document.getElementById('ttsStatusText');
+  const ttsRateSelect = document.getElementById('ttsRateSelect');
+
+  function updateAudienceDescription() {
+    if (!audienceModeHelpText) return;
+    if (state.audienceMode === 'education') {
+      audienceModeHelpText.textContent = "Learn, revise and practice with concept breakdowns & practice questions.";
+    } else if (state.audienceMode === 'professional') {
+      audienceModeHelpText.textContent = "Technical architecture, industry implications, implementation insights & terminology.";
+    } else if (state.audienceMode === 'content_creator') {
+      audienceModeHelpText.textContent = "Engaging titles, hooks, story structure, captions & call-to-actions.";
+    }
+  }
+
+  if (audienceModeSelect) {
+    audienceModeSelect.value = state.audienceMode || 'education';
+    audienceModeSelect.addEventListener('change', (e) => {
+      state.audienceMode = e.target.value;
+      updateAudienceDescription();
+    });
+    updateAudienceDescription();
+  }
+
+  // -------------------------------------------------------------
+  // TEXT-TO-SPEECH ENGINE (Web Speech API)
+  // -------------------------------------------------------------
+  const ttsManager = {
+    synth: window.speechSynthesis || null,
+    isSpeaking: false,
+    isPaused: false,
+    activeSectionEl: null,
+    currentUtterance: null,
+    queue: [],
+    queueIndex: 0,
+    selectedVoice: null,
+
+    init() {
+      if (!this.synth) return;
+      const selectVoice = () => {
+        try {
+          const voices = this.synth.getVoices() || [];
+          this.selectedVoice = voices.find(v => v.lang === 'en-US' && !v.name.includes('Google') && !v.name.includes('Natural')) 
+            || voices.find(v => v.lang && v.lang.startsWith('en')) 
+            || (voices.length > 0 ? voices[0] : null);
+        } catch (e) {
+          console.warn("TTS voice enumeration:", e);
+        }
+      };
+      selectVoice();
+      if (this.synth.onvoiceschanged !== undefined) {
+        this.synth.onvoiceschanged = selectVoice;
+      }
+    },
+
+    getRate() {
+      return parseFloat(ttsRateSelect ? ttsRateSelect.value : '1.0') || 1.0;
+    },
+
+    splitIntoSentences(text) {
+      if (!text) return [];
+      const clean = String(text).replace(/\s+/g, ' ').trim();
+      const matches = clean.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g);
+      return matches ? matches.map(s => s.trim()).filter(Boolean) : [clean];
+    },
+
+    stop() {
+      if (this.synth) {
+        try {
+          this.synth.cancel();
+        } catch {}
+      }
+      this.isSpeaking = false;
+      this.isPaused = false;
+      this.queue = [];
+      this.queueIndex = 0;
+      this.currentUtterance = null;
+      if (this.activeSectionEl) {
+        this.activeSectionEl.classList.remove('speaking-active');
+        this.activeSectionEl = null;
+      }
+      document.querySelectorAll('.btn-tts-section').forEach(b => b.classList.remove('active-speaking'));
+      if (ttsPlayAllBtn) ttsPlayAllBtn.innerHTML = '<i class="fa-solid fa-play"></i> Listen to Notes';
+      if (ttsPauseBtn) ttsPauseBtn.classList.add('hidden');
+      if (ttsStopBtn) ttsStopBtn.classList.add('hidden');
+      if (ttsStatusPill) ttsStatusPill.classList.add('hidden');
+    },
+
+    pause() {
+      if (!this.synth) return;
+      if (this.isSpeaking && !this.isPaused) {
+        try {
+          this.synth.pause();
+        } catch {}
+        this.isPaused = true;
+        if (ttsPauseBtn) ttsPauseBtn.innerHTML = '<i class="fa-solid fa-play"></i> Resume';
+        if (ttsStatusText) ttsStatusText.textContent = 'Paused';
+      }
+    },
+
+    resume() {
+      if (!this.synth) return;
+      if (this.isPaused) {
+        try {
+          this.synth.resume();
+        } catch {}
+        this.isPaused = false;
+        if (ttsPauseBtn) ttsPauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+        if (ttsStatusText) ttsStatusText.textContent = 'Playing...';
+      }
+    },
+
+    speakQueue(items, onComplete) {
+      if (!this.synth) {
+        showToast("Text-to-Speech is not supported in this browser.", "warning");
+        return;
+      }
+      this.stop();
+      if (!items || items.length === 0) return;
+
+      this.queue = items;
+      this.queueIndex = 0;
+      this.isSpeaking = true;
+      this.isPaused = false;
+
+      if (ttsPauseBtn) {
+        ttsPauseBtn.classList.remove('hidden');
+        ttsPauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+      }
+      if (ttsStopBtn) ttsStopBtn.classList.remove('hidden');
+      if (ttsPlayAllBtn) ttsPlayAllBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Replay All';
+      if (ttsStatusPill) ttsStatusPill.classList.remove('hidden');
+
+      const playNextSection = () => {
+        if (this.queueIndex >= this.queue.length) {
+          this.stop();
+          if (onComplete) onComplete();
+          return;
+        }
+
+        const currentItem = this.queue[this.queueIndex];
+        this.queueIndex++;
+
+        // Visual Section Highlight
+        if (this.activeSectionEl) this.activeSectionEl.classList.remove('speaking-active');
+        if (currentItem.elementId) {
+          const el = document.getElementById(currentItem.elementId);
+          if (el) {
+            this.activeSectionEl = el;
+            el.classList.add('speaking-active');
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+
+        document.querySelectorAll('.btn-tts-section').forEach(b => b.classList.remove('active-speaking'));
+        if (currentItem.btnElement) {
+          currentItem.btnElement.classList.add('active-speaking');
+        }
+
+        if (ttsStatusText) {
+          ttsStatusText.textContent = `Reading: ${currentItem.title || 'Section'}...`;
+        }
+
+        const sentences = this.splitIntoSentences(currentItem.text);
+        let sIdx = 0;
+
+        const speakNextSentence = () => {
+          if (!this.isSpeaking) return;
+          if (sIdx >= sentences.length) {
+            playNextSection();
+            return;
+          }
+
+          const sentence = sentences[sIdx++];
+          const utterance = new SpeechSynthesisUtterance(sentence);
+          if (this.selectedVoice) utterance.voice = this.selectedVoice;
+          utterance.rate = this.getRate();
+          utterance.pitch = 1.0;
+
+          utterance.onend = () => {
+            speakNextSentence();
+          };
+          utterance.onerror = (err) => {
+            console.warn("Utterance error:", err);
+            speakNextSentence();
+          };
+
+          this.currentUtterance = utterance;
+          try {
+            this.synth.speak(utterance);
+          } catch (e) {
+            console.warn("Synth speak failed:", e);
+            speakNextSentence();
+          }
+        };
+
+        speakNextSentence();
+      };
+
+      playNextSection();
+    }
+  };
+
+  ttsManager.init();
+
+  if (ttsPlayAllBtn) {
+    ttsPlayAllBtn.addEventListener('click', () => {
+      if (ttsManager.isSpeaking && !ttsManager.isPaused) {
+        ttsManager.stop();
+        return;
+      }
+      playAllNotesSpeech();
+    });
+  }
+
+  if (ttsPauseBtn) {
+    ttsPauseBtn.addEventListener('click', () => {
+      if (ttsManager.isPaused) {
+        ttsManager.resume();
+      } else {
+        ttsManager.pause();
+      }
+    });
+  }
+
+  if (ttsStopBtn) {
+    ttsStopBtn.addEventListener('click', () => {
+      ttsManager.stop();
+    });
+  }
+
+  // -------------------------------------------------------------
+  // NOTES MODAL & GENERATION CONTROLLER
+  // -------------------------------------------------------------
+  let currentActiveClipForNotes = null;
+  let currentRenderedNotesData = null;
+
+  function updateNotesModeUI(mode) {
+    const badges = {
+      education: 'Education Mode',
+      professional: 'Professional Mode',
+      content_creator: 'Content Creator Mode'
+    };
+    if (notesAudienceBadge) {
+      notesAudienceBadge.textContent = badges[mode] || 'Audience Notes';
+    }
+
+    [notesModeEduBtn, notesModeProBtn, notesModeCreatorBtn].forEach(btn => {
+      if (btn) {
+        if (btn.getAttribute('data-mode') === mode) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
+  }
+
+  async function openClipNotes(clipId, title, startTime, endTime, modeOverride = null) {
+    if (!clipId) return;
+
+    const activeMode = modeOverride || state.audienceMode || 'education';
+    currentActiveClipForNotes = {
+      clipId,
+      title: title || 'Clip Insight',
+      startTime: parseFloat(startTime || 0),
+      endTime: parseFloat(endTime || 0),
+      mode: activeMode
+    };
+
+    ttsManager.stop();
+
+    if (clipNotesModal) clipNotesModal.classList.remove('hidden');
+    if (notesClipTitle) notesClipTitle.textContent = currentActiveClipForNotes.title;
+    if (notesClipMeta) {
+      notesClipMeta.textContent = `${formatTime(currentActiveClipForNotes.startTime)} — ${formatTime(currentActiveClipForNotes.endTime)} • Source Verified`;
+    }
+
+    updateNotesModeUI(activeMode);
+
+    const cacheKey = `${clipId}_${activeMode}`;
+    if (state.notesCache[cacheKey]) {
+      renderClipNotes(state.notesCache[cacheKey]);
+      return;
+    }
+
+    if (notesLoadingState) notesLoadingState.classList.remove('hidden');
+    if (notesContentContainer) notesContentContainer.innerHTML = '';
+
+    try {
+      const endpoint = `/api/clips/${encodeURIComponent(clipId)}/notes?video_id=${encodeURIComponent(state.videoId || '')}`;
+      const res = await apiFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audience_mode: activeMode })
+      });
+
+      if (!res.ok) {
+        const errDetail = await parseErrorResponse(res, "Failed to generate AI notes");
+        throw new Error(errDetail);
+      }
+
+      const notesData = await res.json();
+      state.notesCache[cacheKey] = notesData;
+      renderClipNotes(notesData);
+    } catch (err) {
+      if (notesLoadingState) notesLoadingState.classList.add('hidden');
+      if (notesContentContainer) {
+        notesContentContainer.innerHTML = `
+          <div style="text-align:center; padding: 2rem; color: #f87171;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:2rem; margin-bottom:0.75rem;"></i>
+            <h4>Could Not Generate Notes</h4>
+            <p style="font-size:0.85rem; color:var(--text-secondary); max-width:480px; margin:0 auto 1rem auto;">${escapeHtml(err.message)}</p>
+            <button class="btn-action btn-sm" id="retryNotesBtn">
+              <i class="fa-solid fa-rotate-right"></i> Retry Generation
+            </button>
+          </div>
+        `;
+        const retryBtn = document.getElementById('retryNotesBtn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => {
+            openClipNotes(clipId, title, startTime, endTime, activeMode);
+          });
+        }
+      }
+    }
+  }
+
+  // Audience Mode Pills inside Notes Modal
+  [notesModeEduBtn, notesModeProBtn, notesModeCreatorBtn].forEach(btn => {
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const newMode = btn.getAttribute('data-mode');
+        if (currentActiveClipForNotes) {
+          openClipNotes(
+            currentActiveClipForNotes.clipId,
+            currentActiveClipForNotes.title,
+            currentActiveClipForNotes.startTime,
+            currentActiveClipForNotes.endTime,
+            newMode
+          );
+        }
+      });
+    }
+  });
+
+  if (closeNotesModalBtn) {
+    closeNotesModalBtn.addEventListener('click', () => {
+      ttsManager.stop();
+      if (clipNotesModal) clipNotesModal.classList.add('hidden');
+    });
+  }
+
+  if (clipNotesModal) {
+    clipNotesModal.addEventListener('click', (e) => {
+      if (e.target === clipNotesModal) {
+        ttsManager.stop();
+        clipNotesModal.classList.add('hidden');
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // RENDER STRUCTURED AI NOTES
+  // -------------------------------------------------------------
+  function renderClipNotes(notesData) {
+    if (!notesContentContainer) return;
+    if (notesLoadingState) notesLoadingState.classList.add('hidden');
+    currentRenderedNotesData = notesData;
+
+    const mode = notesData.audience_mode || 'education';
+    const sections = notesData.sections || {};
+    notesContentContainer.innerHTML = '';
+
+    // 1. Summary Card
+    const summaryCard = document.createElement('div');
+    summaryCard.className = 'note-section-card';
+    summaryCard.id = 'sec_summary';
+    summaryCard.innerHTML = `
+      <div class="note-section-header">
+        <h4><i class="fa-solid fa-align-left icon-accent"></i> ${mode === 'professional' ? 'Executive Summary' : 'Clip Overview'}</h4>
+        <button class="btn-tts-section" data-target="sec_summary">
+          <i class="fa-solid fa-volume-high"></i> Listen
+        </button>
+      </div>
+      <p class="note-section-text">${escapeHtml(notesData.clip_summary || sections.clip_overview || sections.executive_summary || '')}</p>
+    `;
+    notesContentContainer.appendChild(summaryCard);
+
+    // 2. Key Points Card
+    if (notesData.key_points && notesData.key_points.length > 0) {
+      const kpCard = document.createElement('div');
+      kpCard.className = 'note-section-card';
+      kpCard.id = 'sec_key_points';
+      kpCard.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-list-check icon-accent"></i> Key Points</h4>
+          <button class="btn-tts-section" data-target="sec_key_points">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <ul class="note-bullet-list">
+          ${notesData.key_points.map(pt => `<li>${escapeHtml(pt)}</li>`).join('')}
+        </ul>
+      `;
+      notesContentContainer.appendChild(kpCard);
+    }
+
+    // 3. Mode-Specific Sections
+    if (mode === 'education') {
+      renderEducationSections(sections);
+    } else if (mode === 'professional') {
+      renderProfessionalSections(sections);
+    } else if (mode === 'content_creator') {
+      renderCreatorSections(sections);
+    }
+
+    // Bind individual section TTS buttons
+    notesContentContainer.querySelectorAll('.btn-tts-section').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const secId = btn.getAttribute('data-target');
+        const secEl = document.getElementById(secId);
+        if (!secEl) return;
+
+        const title = secEl.querySelector('h4') ? secEl.querySelector('h4').innerText : 'Section';
+        const textToRead = extractReadableText(secEl);
+
+        ttsManager.speakQueue([
+          {
+            elementId: secId,
+            btnElement: btn,
+            title: title,
+            text: textToRead
+          }
+        ]);
+      });
+    });
+  }
+
+  function renderEducationSections(sections) {
+    // Key Concepts
+    if (sections.key_concepts && sections.key_concepts.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_key_concepts';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-lightbulb icon-accent"></i> Key Concepts</h4>
+          <button class="btn-tts-section" data-target="sec_key_concepts">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="concepts-grid">
+          ${sections.key_concepts.map(c => `
+            <div class="concept-card">
+              <div class="concept-name">${escapeHtml(c.name || 'Concept')}</div>
+              <div class="concept-explanation">${escapeHtml(c.explanation || '')}</div>
+              ${c.why_it_matters ? `<div class="concept-why"><strong>Why it matters:</strong> ${escapeHtml(c.why_it_matters)}</div>` : ''}
+              ${c.example ? `<div class="concept-why" style="margin-top:4px;color:#ffa366;"><strong>Example:</strong> ${escapeHtml(c.example)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Revision Notes
+    if (sections.revision_notes && sections.revision_notes.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_revision';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-bookmark icon-accent"></i> Revision Notes (Exam Prep)</h4>
+          <button class="btn-tts-section" data-target="sec_revision">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <ul class="note-bullet-list">
+          ${sections.revision_notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}
+        </ul>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Practice Questions
+    if (sections.practice_questions) {
+      const pq = sections.practice_questions;
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_practice';
+      
+      let questionsHtml = '<div class="questions-list">';
+      if (pq.short_answer_questions && pq.short_answer_questions.length > 0) {
+        pq.short_answer_questions.forEach((q, i) => {
+          questionsHtml += `
+            <div class="question-item">
+              <div class="question-tag">Short Answer Q${i + 1}</div>
+              <p class="question-text">${escapeHtml(q)}</p>
+            </div>
+          `;
+        });
+      }
+      if (pq.conceptual_questions && pq.conceptual_questions.length > 0) {
+        pq.conceptual_questions.forEach((q, i) => {
+          questionsHtml += `
+            <div class="question-item">
+              <div class="question-tag">Conceptual / Application Q${i + 1}</div>
+              <p class="question-text">${escapeHtml(q)}</p>
+            </div>
+          `;
+        });
+      }
+      if (pq.multiple_choice_question) {
+        const mcq = pq.multiple_choice_question;
+        questionsHtml += `
+          <div class="mcq-box">
+            <div class="question-tag">Multiple Choice Challenge</div>
+            <div class="mcq-question">${escapeHtml(mcq.question || '')}</div>
+            <div class="mcq-options">
+              ${(mcq.options || []).map(opt => {
+                const isCorrect = (opt === mcq.correct_answer || (mcq.correct_answer && opt.startsWith(mcq.correct_answer.charAt(0))));
+                return `<div class="mcq-option ${isCorrect ? 'correct' : ''}">${escapeHtml(opt)}</div>`;
+              }).join('')}
+            </div>
+            ${mcq.explanation ? `<p class="mcq-explanation"><strong>Answer & Explanation:</strong> ${escapeHtml(mcq.correct_answer || '')} — ${escapeHtml(mcq.explanation)}</p>` : ''}
+          </div>
+        `;
+      }
+      questionsHtml += '</div>';
+
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-circle-question icon-accent"></i> Practice Questions</h4>
+          <button class="btn-tts-section" data-target="sec_practice">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        ${questionsHtml}
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Quick Recap
+    if (sections.quick_recap && sections.quick_recap.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_recap';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-flag-checkered icon-accent"></i> Quick Recap</h4>
+          <button class="btn-tts-section" data-target="sec_recap">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <ul class="note-bullet-list">
+          ${sections.quick_recap.map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+        </ul>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+  }
+
+  function renderProfessionalSections(sections) {
+    // Technical Breakdown
+    if (sections.technical_breakdown) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_tech_breakdown';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-microchip icon-accent"></i> Technical Breakdown</h4>
+          <button class="btn-tts-section" data-target="sec_tech_breakdown">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <p class="note-section-text">${escapeHtml(sections.technical_breakdown)}</p>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Industry Relevance
+    if (sections.industry_relevance) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_industry_relevance';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-chart-line icon-accent"></i> Industry Relevance</h4>
+          <button class="btn-tts-section" data-target="sec_industry_relevance">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <p class="note-section-text">${escapeHtml(sections.industry_relevance)}</p>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Implementation Insights
+    if (sections.implementation_insights && sections.implementation_insights.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_implementation';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-gears icon-accent"></i> Implementation Insights</h4>
+          <button class="btn-tts-section" data-target="sec_implementation">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="insights-grid">
+          ${sections.implementation_insights.map(item => `
+            <div class="insight-item-box">
+              ${item.problem ? `<div class="insight-row"><span class="insight-label">Problem:</span> ${escapeHtml(item.problem)}</div>` : ''}
+              ${item.approach ? `<div class="insight-row"><span class="insight-label">Approach:</span> ${escapeHtml(item.approach)}</div>` : ''}
+              ${item.how_it_works ? `<div class="insight-row"><span class="insight-label">Mechanism:</span> ${escapeHtml(item.how_it_works)}</div>` : ''}
+              ${item.benefits ? `<div class="insight-row"><span class="insight-label" style="color:#4ade80;">Benefits:</span> ${escapeHtml(item.benefits)}</div>` : ''}
+              ${item.trade_offs ? `<div class="insight-row"><span class="insight-label" style="color:#fbbf24;">Trade-offs:</span> ${escapeHtml(item.trade_offs)}</div>` : ''}
+              ${item.limitations ? `<div class="insight-row"><span class="insight-label" style="color:#f87171;">Limitations:</span> ${escapeHtml(item.limitations)}</div>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Action Items / Next Steps
+    if (sections.action_items && sections.action_items.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_action_items';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-arrow-trend-up icon-accent"></i> Action Items & Next Steps</h4>
+          <button class="btn-tts-section" data-target="sec_action_items">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <ul class="note-bullet-list">
+          ${sections.action_items.map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+        </ul>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Terminology
+    if (sections.terminology && sections.terminology.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_terminology';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-spell-check icon-accent"></i> Terminology Reference</h4>
+          <button class="btn-tts-section" data-target="sec_terminology">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="concepts-grid">
+          ${sections.terminology.map(t => `
+            <div class="concept-card">
+              <div class="concept-name">${escapeHtml(t.term || 'Term')}</div>
+              <div class="concept-explanation">${escapeHtml(t.definition || '')}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+  }
+
+  function renderCreatorSections(sections) {
+    // Core Message
+    if (sections.core_message) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_core_message';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-bullseye icon-accent"></i> Core Story Message</h4>
+          <button class="btn-tts-section" data-target="sec_core_message">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <p class="note-section-text">${escapeHtml(sections.core_message)}</p>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Suggested Titles
+    if (sections.suggested_titles && sections.suggested_titles.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_titles';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-heading icon-accent"></i> Suggested Titles</h4>
+          <button class="btn-tts-section" data-target="sec_titles">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="title-chips">
+          ${sections.suggested_titles.map((title, i) => `
+            <div class="title-chip"><i class="fa-solid fa-hashtag" style="color:var(--primary);font-size:0.75rem;"></i> ${escapeHtml(title)}</div>
+          `).join('')}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Hooks
+    if (sections.hooks && sections.hooks.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_hooks';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-fish-fins icon-accent"></i> 3-Second Opening Hooks</h4>
+          <button class="btn-tts-section" data-target="sec_hooks">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="questions-list">
+          ${sections.hooks.map((h, i) => `
+            <div class="question-item">
+              <div class="question-tag">Hook Option ${i + 1}</div>
+              <p class="question-text">"${escapeHtml(h)}"</p>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Story Structure
+    if (sections.story_structure && typeof sections.story_structure === 'object') {
+      const ss = sections.story_structure;
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_story_structure';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-timeline icon-accent"></i> Narrative Arc & Structure</h4>
+          <button class="btn-tts-section" data-target="sec_story_structure">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        <div class="story-timeline">
+          ${ss.hook ? `<div class="story-step"><span class="story-step-badge">1. Hook</span><div class="story-step-content">${escapeHtml(ss.hook)}</div></div>` : ''}
+          ${ss.context ? `<div class="story-step"><span class="story-step-badge">2. Context</span><div class="story-step-content">${escapeHtml(ss.context)}</div></div>` : ''}
+          ${ss.main_idea ? `<div class="story-step"><span class="story-step-badge">3. Main Idea</span><div class="story-step-content">${escapeHtml(ss.main_idea)}</div></div>` : ''}
+          ${ss.supporting_explanation ? `<div class="story-step"><span class="story-step-badge">4. Evidence</span><div class="story-step-content">${escapeHtml(ss.supporting_explanation)}</div></div>` : ''}
+          ${ss.conclusion ? `<div class="story-step"><span class="story-step-badge">5. Outro</span><div class="story-step-content">${escapeHtml(ss.conclusion)}</div></div>` : ''}
+        </div>
+      `;
+      notesContentContainer.appendChild(card);
+    }
+
+    // Storytelling Improvement & Caption
+    if (sections.storytelling_improvements || sections.social_caption || sections.call_to_action) {
+      const card = document.createElement('div');
+      card.className = 'note-section-card';
+      card.id = 'sec_social_cta';
+      card.innerHTML = `
+        <div class="note-section-header">
+          <h4><i class="fa-solid fa-share-nodes icon-accent"></i> Social Publishing & CTA</h4>
+          <button class="btn-tts-section" data-target="sec_social_cta">
+            <i class="fa-solid fa-volume-high"></i> Listen
+          </button>
+        </div>
+        ${sections.social_caption ? `
+          <div style="margin-bottom:10px;">
+            <div class="insight-label">Ready-to-Post Caption:</div>
+            <p class="note-section-text" style="margin-top:4px;">${escapeHtml(sections.social_caption)}</p>
+          </div>
+        ` : ''}
+        ${sections.call_to_action ? `
+          <div style="margin-bottom:10px;">
+            <div class="insight-label">Suggested Call to Action:</div>
+            <p class="note-section-text" style="margin-top:4px;color:#ffa366;">${escapeHtml(sections.call_to_action)}</p>
+          </div>
+        ` : ''}
+        ${sections.storytelling_improvements ? `
+          <div>
+            <div class="insight-label">Editorial Improvement:</div>
+            <p class="note-section-text" style="margin-top:4px;font-size:0.86rem;color:var(--text-secondary);">${escapeHtml(sections.storytelling_improvements)}</p>
+          </div>
+        ` : ''}
+      `;
+      notesContentContainer.appendChild(card);
+    }
+  }
+
+  function extractReadableText(containerEl) {
+    if (!containerEl) return '';
+    const clone = containerEl.cloneNode(true);
+    // Remove buttons and icons
+    clone.querySelectorAll('.btn-tts-section, i, svg').forEach(el => el.remove());
+    return clone.innerText.replace(/\s+/g, ' ').trim();
+  }
+
+  function playAllNotesSpeech() {
+    if (!notesContentContainer) return;
+    const sectionCards = Array.from(notesContentContainer.querySelectorAll('.note-section-card'));
+    if (sectionCards.length === 0) {
+      showToast("No notes loaded to read.", "info");
+      return;
+    }
+
+    const items = sectionCards.map(sec => {
+      const titleEl = sec.querySelector('h4');
+      const title = titleEl ? titleEl.innerText : 'Section';
+      const text = extractReadableText(sec);
+      return {
+        elementId: sec.id,
+        btnElement: sec.querySelector('.btn-tts-section'),
+        title: title,
+        text: text
+      };
+    }).filter(item => item.text.length > 0);
+
+    ttsManager.speakQueue(items);
+  }
+
+  // Copy Notes to Clipboard
+  if (copyNotesBtn) {
+    copyNotesBtn.addEventListener('click', async () => {
+      if (!currentRenderedNotesData) {
+        showToast("No notes available to copy.", "info");
+        return;
+      }
+      const data = currentRenderedNotesData;
+      let md = `# Vidara AI Notes — ${data.clip_title || 'Clip'}\n`;
+      md += `Audience: ${data.audience_mode.toUpperCase()} | Timestamps: ${formatTime(data.source_start)} - ${formatTime(data.source_end)}\n\n`;
+      md += `## Summary\n${data.clip_summary}\n\n`;
+      if (data.key_points && data.key_points.length > 0) {
+        md += `## Key Points\n` + data.key_points.map(p => `- ${p}`).join('\n') + '\n\n';
+      }
+
+      const s = data.sections || {};
+      for (const [key, val] of Object.entries(s)) {
+        const cleanTitle = key.replace(/_/g, ' ').toUpperCase();
+        md += `## ${cleanTitle}\n`;
+        if (typeof val === 'string') {
+          md += `${val}\n\n`;
+        } else if (Array.isArray(val)) {
+          val.forEach(item => {
+            if (typeof item === 'string') md += `- ${item}\n`;
+            else if (typeof item === 'object') md += `- **${item.name || item.term || item.problem || 'Item'}**: ${JSON.stringify(item)}\n`;
+          });
+          md += '\n';
+        } else if (typeof val === 'object') {
+          for (const [subK, subV] of Object.entries(val)) {
+            md += `### ${subK.replace(/_/g, ' ')}\n${typeof subV === 'string' ? subV : JSON.stringify(subV, null, 2)}\n\n`;
+          }
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(md);
+        showToast("Formatted notes copied to clipboard!", "success");
+      } catch (e) {
+        showToast("Could not copy to clipboard.", "error");
+      }
+    });
+  }
+
+  // Restore Audience Mode on video load / status checks
+  window.addEventListener('beforeunload', () => {
+    ttsManager.stop();
+  });
+});
+
