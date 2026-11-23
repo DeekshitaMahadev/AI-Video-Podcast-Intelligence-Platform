@@ -1,4 +1,4 @@
-# 🧠 VIDARA — AI Video & Podcast Intelligence Platform
+# AI Video & Podcast Intelligence Platform
 > *"Understand Every Moment."*  
 > **Autonomous Long-Form Video Comprehension, Speaker Diarization, Podcast Intelligence & Semantic Extraction Engine**
 
@@ -303,11 +303,5 @@ A `render.yaml` configuration is included for zero-downtime deployment:
 3. Deploy directly as a web service.
 
 ---
-
-## 👥 Authors & Team
-
-**Team Knight Coders**  
-*HACKERING 2.0 (Round 2) — Voice AI Track*  
-*Project ID: HR2-OI-6C86C871*
 
 Built with ❤️ using FastAPI, Groq LPUs, Whisper Large-v3, Supabase, and FFmpeg.
